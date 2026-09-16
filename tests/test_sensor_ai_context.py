@@ -67,9 +67,11 @@ class SensorAIContextTest(unittest.TestCase):
         # A sustained abnormal value is not repeated after the cooldown.
         self.assertIsNone(monitor.poll(changed, self.health, now=1602))
 
-    def test_monitor_never_announces_simulated_fallback(self):
+    def test_monitor_never_announces_while_disconnected(self):
+        # Sensor absence must stay silent rather than be covered by a
+        # fabricated reading (the old SENSOR_SIM_FALLBACK behaviour).
         monitor = SensorAnnouncementMonitor(cooldown_seconds=1)
-        health = dict(self.health, simulated=True)
+        health = dict(self.health, connected=False)
 
         self.assertIsNone(monitor.poll(self.snapshot, health, now=1000))
         changed = dict(self.snapshot, risk_level=2, temperature_c=35.0)

@@ -98,10 +98,10 @@ class SensorAnnouncementMonitor:
         now: Optional[float] = None,
     ) -> Optional[str]:
         now = time.time() if now is None else float(now)
-        # Simulation is a display/chat fallback, not a real-world alert
-        # source.  Speaking it proactively on every restart monopolizes TTS
-        # and misrepresents fallback values as live measurements.
-        if not health.get("connected") or health.get("simulated"):
+        # Only live readings are worth speaking.  Announcing on stale or
+        # disconnected data would present old numbers as current measurements,
+        # and would monopolise TTS on every restart.
+        if not health.get("connected"):
             return None
 
         with self._lock:

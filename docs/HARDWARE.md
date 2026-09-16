@@ -262,11 +262,10 @@ to the model, with an explicit instruction not to invent the rest.
 
 **Sensor absence is explicitly non-fatal** and must never trigger a restart.
 
-> Design note: `SENSOR_SIM_FALLBACK` (default **on**) substitutes plausible readings
-> while the node is disconnected, and forces radar presence on. It is disclosed via
-> `"simulated": true` in the health payload, but it conflicts with the project rule
-> against faking health. Disable it (`SENSOR_SIM_FALLBACK=false`) when the readings
-> matter. See `docs/ARCHITECTURE.md` §9.
+> The offline node, and an online node whose mmWave radar is silent, are both reported
+> truthfully as offline. An earlier revision fabricated plausible readings and forced
+> radar presence on; that has been removed as fabricated health. See
+> `docs/ARCHITECTURE.md` §9 and `tests/test_sensor_state.py`.
 
 Configurable via `SENSOR_ENABLED`, `SENSOR_BAUD`, `SENSOR_RUN_SECONDS`.
 
@@ -420,7 +419,6 @@ variables, the health checks and this document in the same change.
 | `CAMERA_DEVICE` | `/dev/video2` | board camera |
 | `CAMERA_FALLBACK_URL` | `http://127.0.0.1:5016/camera.jpg` | host camera fallback |
 | `SENSOR_ENABLED`, `SENSOR_BAUD`, `SENSOR_RUN_SECONDS` | `true`, `115200`, `86400` | sensor node |
-| `SENSOR_SIM_FALLBACK` | `true` | simulated readings when disconnected (see §"Sensor node") |
 | `VOICE_PORT`, `VOICE_BAUD` | `/dev/ttyHS1`, `9600` | voice module UART |
 | `C07A_MOTION_PORT`, `C07A_MOTION_BAUD`, `C07A_MOTION_MOCK`, `MOTION_FEEDBACK_ENABLED` | empty, `115200`, `true`, `false` | motion controller (inert by default) |
 | `L610_BROKER_HOST`, `L610_BROKER_PORT`, `L610_DEVICE_ID`, `L610_DEVICE_SECRET` | empty | 4G module (unconfigured means disabled) |
@@ -445,4 +443,4 @@ document.
 | The board's formal audio policy is `AUDIO_OUTPUT_MODE=board` | The supervisor default is `auto` — board first, host fallback only after board playback fails. Use `board` for the strict behaviour. |
 | `hw:2,0` is the speaker | `hw:2,0` is only the *fallback* when `lahaina-yupikiot` is not found in `/proc/asound/cards`. The number is not stable across USB replugs and must not be hardcoded. |
 | Port 5016 serves a Piper TTS endpoint | 5016 is the host **camera** fallback. A legacy `FIBO_PIPER_SERVER_URL` default still points at `5016/speak` in `app/fibo_tts.py`; it is inert unless a Piper-style engine is selected, but the two must not be enabled together. |
-| Sensor absence means the UI shows "offline" | With `SENSOR_SIM_FALLBACK` at its default, the UI shows plausible simulated values instead (flagged as `simulated` in the health payload). |
+| Sensor absence means the UI shows "offline" | True now, and it did not used to be: `SENSOR_SIM_FALLBACK` and a radar-forcing path fabricated readings. Both were removed — see §"Sensor node". |

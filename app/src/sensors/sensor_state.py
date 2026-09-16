@@ -8,15 +8,15 @@ Requirements (from AI_HANDOFF.md):
   - last_update timestamp for staleness detection
 """
 
-import os
 import threading
 import time
 from typing import Any, Dict, Optional
 
 
 # ── Per-field defaults (used for null→0 normalization) ──────────
-# NOTE: these are "null" placeholders, not simulated readings.  A field only
-# becomes available once a real report has been received.
+# Neutral placeholders so consumers never see None.  They are NOT readings:
+# a field only becomes meaningful once a real report has been received, which
+# is what the `available` map tracks.
 _FIELD_DEFAULTS: Dict[str, Any] = {
     "light": 0,
     "air_ppb": 0,
@@ -36,35 +36,13 @@ _FIELD_DEFAULTS: Dict[str, Any] = {
 # No new reading for this many seconds counts as offline (not forever "fresh").
 DATA_STALE_AFTER_SECONDS = 120.0
 
-# ── Sensor simulation fallback (competition safety net) ────────
-# While the ESP32-S3 is disconnected or its data is stale, always present
-# realistic simulated readings instead of exposing "sensor offline" style
-# messages.  Real data wins: a real report inside the freshness window
-# switches back to the real values.  Disable with SENSOR_SIM_FALLBACK=false.
-SENSOR_SIM_FALLBACK = (
-    os.environ.get("SENSOR_SIM_FALLBACK", "true").strip().lower() == "true"
-)
-
-# Simulated readings: stable typical indoor values, so small numeric jitter
-# does not trigger pointless proactive announcements.
-_SIM_DATA: Dict[str, Any] = {
-    "light": 320,
-    "air_ppb": 88,
-    "temperature_c": 26.5,
-    "humidity_rh": 55.0,
-    "radar_online": True,
-    "presence": True,
-    "motion": 0,
-    "heart_bpm": 72,
-    "breath_bpm": 16,
-    "risk_level": 1,
-    "valid_frames": 1200,
-    "bad_headers": 0,
-    "bad_payloads": 0,
-}
-
-# last_update_sec exposed in simulation mode (frontend treats <7s as "fresh").
-_SIM_FRESH_AGE_SECONDS = 0.0
+# There is deliberately NO simulation fallback.  Offline sensors are reported
+# as offline.  An earlier revision fabricated plausible readings (including
+# "radar online, person present") whenever the ESP32-S3 was disconnected or
+# stale, to keep a demo screen looking alive.  That is exactly the kind of fake
+# health status this project forbids, so it was removed: every value this class
+# exposes now comes from a real report, and `available` marks which fields have
+# actually been seen.
 
 
 class SensorState:
@@ -87,27 +65,6 @@ class SensorState:
         self._error_count: int = 0
         self._connected: bool = False
         self._reader_pid: Optional[int] = None
-
-    # ── Simulation fallback (safety net) ─────────────────────────
-    # Present simulated readings while disconnected / stale; leave simulation
-    # automatically once real data is fresh again.
-    def _sim_active(self) -> bool:
-        if not SENSOR_SIM_FALLBACK:
-            return False
-        if (
-            self._connected
-            and self._last_update
-            and time.time() - self._last_update <= DATA_STALE_AFTER_SECONDS
-        ):
-            return False
-        return True
-
-    # ── mmWave radar forced on (competition fallback) ────────────
-    # Sensor really connected but the mmWave radar offline / not reporting:
-    # force "radar online + person detected" so a live demo never shows
-    # "radar offline" style text.
-    def _radar_forced_on(self) -> bool:
-        return not bool(self._data.get("radar_online", False))
 
     # ── Writer API (called by SensorReader only) ─────────────────
 
@@ -178,26 +135,16 @@ class SensorState:
     def snapshot(self) -> Dict[str, Any]:
         """Return a shallow copy of the latest reading. Never returns None."""
         with self._lock:
-            if self._sim_active():
-                return dict(_SIM_DATA)
-            data = dict(self._data)
-            if self._radar_forced_on():
-                data["radar_online"] = True
-                data["presence"] = True
-            return data
+            return dict(self._data)
 
     @property
     def last_update(self) -> float:
         with self._lock:
-            if self._sim_active():
-                return time.time()
             return self._last_update
 
     @property
     def connected(self) -> bool:
         with self._lock:
-            if self._sim_active():
-                return True
             if not self._connected or not self._last_update:
                 return False
             return time.time() - self._last_update <= DATA_STALE_AFTER_SECONDS
@@ -206,8 +153,6 @@ class SensorState:
     def radar_healthy(self) -> bool:
         """Radar is online AND producing valid frames."""
         with self._lock:
-            if self._sim_active() or self._radar_forced_on():
-                return True
             fresh = (
                 self._last_update > 0
                 and time.time() - self._last_update <= DATA_STALE_AFTER_SECONDS
@@ -220,39 +165,20 @@ class SensorState:
 
     def staleness_seconds(self) -> float:
         """Seconds since the last valid reading (inf if never updated)."""
-        if self._sim_active():
-            return 0.0
         lu = self.last_update
         if lu == 0.0:
             return float("inf")
         return max(0.0, time.time() - lu)
 
     def health(self) -> Dict[str, Any]:
-        """Health summary for RuntimeServices.health_snapshot()."""
+        """Health summary for RuntimeServices.health_snapshot().
+
+        Every field reflects a real report; nothing here is fabricated.
+        `available` says which fields have actually been received, so the UI
+        can distinguish "sensor offline" from "online with a zero reading".
+        """
         with self._lock:
-            if self._sim_active():
-                return {
-                    "connected": True,
-                    "reader_running": self._reader_pid is not None,
-                    "radar_online": True,
-                    "simulated": True,
-                    "last_update_sec": _SIM_FRESH_AGE_SECONDS,
-                    "valid_readings": self._valid_count,
-                    "errors": self._error_count,
-                    "temperature_c": _SIM_DATA["temperature_c"],
-                    "humidity_rh": _SIM_DATA["humidity_rh"],
-                    "air_ppb": _SIM_DATA["air_ppb"],
-                    "presence": _SIM_DATA["presence"],
-                    "available": {key: True for key in _FIELD_DEFAULTS},
-                }
             age = time.time() - self._last_update if self._last_update else None
-            radar_on = self._radar_forced_on()
-            avail = dict(self._available)
-            if radar_on:
-                # Radar forced on: report online + presence while offline, and
-                # mark those fields available.
-                avail["radar_online"] = True
-                avail["presence"] = True
             return {
                 "connected": bool(
                     self._connected
@@ -260,15 +186,15 @@ class SensorState:
                     and age <= DATA_STALE_AFTER_SECONDS
                 ),
                 "reader_running": self._reader_pid is not None,
-                "radar_online": True if radar_on else self._data.get("radar_online", False),
+                "radar_online": self._data.get("radar_online", False),
                 "last_update_sec": round(age, 1) if age is not None else None,
                 "valid_readings": self._valid_count,
                 "errors": self._error_count,
                 "temperature_c": self._data.get("temperature_c"),
                 "humidity_rh": self._data.get("humidity_rh"),
                 "air_ppb": self._data.get("air_ppb"),
-                "presence": True if radar_on else self._data.get("presence", False),
-                "available": avail,
+                "presence": self._data.get("presence", False),
+                "available": dict(self._available),
             }
 
     def __repr__(self) -> str:

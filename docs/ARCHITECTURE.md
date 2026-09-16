@@ -482,14 +482,13 @@ board speaker.
   unreachable host TTS server are all non-fatal, and each one is supposed to make the
   UI say so rather than silently pass.
 
-> **Known inconsistency.** `app/src/sensors/sensor_state.py` ships a simulation
-> fallback (`SENSOR_SIM_FALLBACK`, default **on**) that substitutes plausible readings
-> while the node is disconnected or stale, and forces `radar_online`/`presence` true
-> when the radar is not reporting. It does disclose itself — `health()` returns
-> `"simulated": true` and the snapshot is only returned while simulation is active —
-> but it is in tension with the rule above. Set `SENSOR_SIM_FALLBACK=false` for any
-> deployment that must report sensor truth. This is a deliberate demo-mode trade-off,
-> not documentation of intended behaviour for a product.
+> **Resolved.** An earlier revision of `app/src/sensors/sensor_state.py` violated the
+> rule above: `SENSOR_SIM_FALLBACK` (default on) substituted plausible readings while
+> the node was disconnected or stale, and `_radar_forced_on()` reported "radar online,
+> person present" whenever the radar was silent. Both existed to keep a demo screen
+> from ever showing "offline". They have been **removed** — the class now returns only
+> what the hardware actually sent, and `health()["available"]` marks which fields were
+> really received. See `tests/test_sensor_state.py`, which fails if either returns.
 
 ---
 
