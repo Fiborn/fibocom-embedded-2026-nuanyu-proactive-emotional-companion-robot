@@ -203,6 +203,21 @@ In short: Matcha-TTS, Piper and ZipVoice are open models you can download or con
 yourself; the Fibocom `fibots`/`fiboasr` DSP models are vendor assets that must come from
 Fibocom and cannot be published.
 
+## Known issues
+
+Read [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md) before deploying anything. The two that
+catch people out:
+
+- **The board and this repository can drift apart.** The original deployment is driven by a
+  Windows launcher that pushes its own bundled payload over the board's files. An older
+  launcher silently downgrades the board. Compare content hashes — and note that the board's
+  clock is wrong, so its file timestamps mean nothing.
+- **The board's clock is stopped.** Do not use board timestamps as evidence.
+
+The rest of that document covers the lab-grade security posture, the absence of any account
+registration path, which optional hardware fails loudly and why, and the legacy oddities that
+look like bugs but are load-bearing.
+
 ## Security
 
 Before running this outside a lab, note that:
