@@ -371,7 +371,6 @@ _HPH_ROUTE_OFF = (
 
 @ctypes.CFUNCTYPE(ctypes.c_int, ctypes.POINTER(ctypes.c_short), ctypes.c_int, ctypes.c_void_p)
 def _espeak_callback(wav, numsamples, userdata):
-    global _audio_buffer
     if numsamples > 0:
         with _callback_lock:
             samples_array = (ctypes.c_short * numsamples).from_address(
@@ -781,7 +780,6 @@ def fibo_tts_speak(text, lang="zh"):
     if FIBO_SDK_AVAILABLE and _fibo_audio_api is not None:
         try:
             synth = fibo_tts_synthesize_to_wav(text, wav_path, lang=lang)
-            status = synth.get("status")
             if synth.get("success"):
                 print("[TTS] Fibocom TTS OK ({} bytes)".format(os.path.getsize(wav_path)))
                 if _tts_muted.is_set():

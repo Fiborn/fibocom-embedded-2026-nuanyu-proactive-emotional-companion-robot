@@ -7,7 +7,7 @@ Agent E owns this file and src/services/cloud_sync_service.py.
 from __future__ import annotations
 import abc
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 # ── Data types ────────────────────────────────────────────────

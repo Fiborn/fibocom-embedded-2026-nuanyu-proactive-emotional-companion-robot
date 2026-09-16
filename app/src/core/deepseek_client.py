@@ -93,8 +93,10 @@ class DeepSeekHTTPClient:
                                body=body, headers=headers)
             response = connection.getresponse()
             if response.status < 200 or response.status >= 300:
-                detail = response.read(1024).decode("utf-8", errors="ignore")
-                # Sanitized: do not include response body which may contain auth headers
+                # Drain a bounded prefix of the error body so the pooled
+                # connection stays reusable, but do not surface it in the
+                # exception: it may contain auth headers.
+                response.read(1024).decode("utf-8", errors="ignore")
                 raise RuntimeError("DeepSeek HTTP %d" % response.status)
             while True:
                 line = response.readline()

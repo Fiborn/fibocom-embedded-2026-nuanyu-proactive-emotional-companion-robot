@@ -9,8 +9,6 @@ import abc
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from src.ports.memory import MemoryService
-
 
 # ── VoiceProfile: links a persona to a TTS voice pack ─────────
 

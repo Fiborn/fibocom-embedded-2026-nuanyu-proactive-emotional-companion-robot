@@ -254,8 +254,6 @@ class DrizzleBackend:
 
     # ── Playback thread: serial playback of synthesized WAVs; the completion callback releases coordinator pending ──
     def _play_worker(self):
-        import time as _time
-
         _tts_client_dir = os.path.join(NUANYU_ROOT, "tts_client")
         if _tts_client_dir not in sys.path:
             sys.path.insert(0, _tts_client_dir)
@@ -268,7 +266,6 @@ class DrizzleBackend:
             tts_latency_ms = 0
             try:
                 if not self._stop_event.is_set():
-                    t_play = _time.perf_counter()
                     ok, output_target = play_file_board_first(
                         wav_path,
                         fibo_tts._play_wav,

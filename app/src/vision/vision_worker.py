@@ -12,10 +12,10 @@ _cur = os.path.dirname(os.path.abspath(__file__))
 if _cur not in sys.path:
     sys.path.insert(0, os.path.dirname(_cur))
 
-from vision.fer_onnx_backend import FEROnnxBackend, LABELS, EMOTION_ZH
+from vision.fer_onnx_backend import FEROnnxBackend, EMOTION_ZH
 from vision.expression_smoother import ExpressionSmoother
 
-CAMERA_DEVICE = "/dev/video2"
+CAMERA_DEVICE = os.environ.get("CAMERA_DEVICE", "/dev/video2")
 CAMERA_FALLBACK_URL = os.environ.get(
     "CAMERA_FALLBACK_URL",
     "http://127.0.0.1:5016/camera.jpg",
@@ -241,7 +241,6 @@ class VisionWorker:
 
                     # Log on change
                     if smoothed["changed"] and has_face:
-                        prev_emotion = "unknown"
                         print(f"[FER] emotion={smoothed['emotion']} "
                               f"conf={smoothed['confidence']:.2f} "
                               f"source={face_source} face={face_detect_ms:.1f}ms "

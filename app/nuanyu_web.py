@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 nuanyu_web.py
-Xiaopei Web V3 — voice conversation edition 🎤
+Nuanyu Web — voice conversation edition 🎤
 Web frontend + camera + voice commands + DeepSeek AI + 🎤continuous voice chat (ASR) + focus goals + study report + mood self-rating + proactive care + local memory
 + multi-user login with per-user memory and custom character names
 + TTS preload + DeepSeek output token limit
@@ -60,8 +60,6 @@ def _thread_crash(args):
         pass
     # Don't os._exit — let the thread die, keep main process alive
 _thr.excepthook = _thread_crash
-import subprocess
-import tempfile
 import threading
 import urllib.request
 import ssl
@@ -168,9 +166,11 @@ def _weather_provider(city: str) -> dict:
         return {"ok": False, "error": "天气服务不可用：%s" % str(exc)[:120]}
 
 
-CAMERA_DEVICE = "/dev/video2"
-VOICE_PORT = "/dev/ttyHS1"
-VOICE_BAUD = 9600
+# Board peripherals. All three are documented as configurable, and the defaults
+# reproduce the on-board wiring exactly.
+CAMERA_DEVICE = os.environ.get("CAMERA_DEVICE", "/dev/video2")
+VOICE_PORT = os.environ.get("VOICE_PORT", "/dev/ttyHS1")
+VOICE_BAUD = int(os.environ.get("VOICE_BAUD", "9600"))
 
 # AI configuration — DeepSeek API (OpenAI-compatible)
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
@@ -259,8 +259,6 @@ try:
     from src.tts.doubao_provider import (
         doubao_speak_async,
         doubao_stop,
-        doubao_is_speaking,
-        doubao_shutdown,
         get_doubao_provider,
         doubao_set_voice,
         doubao_get_voices,
@@ -280,8 +278,6 @@ try:
     from src.tts.surge_lite_provider import (
         surge_speak_async,
         surge_stop,
-        surge_is_speaking,
-        surge_shutdown,
         get_surge_provider,
     )
     _surge_provider = get_surge_provider()
@@ -599,8 +595,6 @@ def get_global_vision_state():
             return dict(_global_vision_state)
 
 # ======================== ASR configuration ========================
-ASR_BACKEND = os.environ.get("ASR_BACKEND", "legacy_pc")
-ASR_FALLBACK_BACKEND = os.environ.get("ASR_FALLBACK_BACKEND", "legacy_pc")
 ASR_ENABLED = os.environ.get("ASR_ENABLED", "true").strip().lower() == "true"
 
 # ======================== global ASR singleton ========================
@@ -798,7 +792,7 @@ def _poll_asr_results():
     while _global_asr_worker is not None:
         # If RuntimeServices has taken over, defer to it
         try:
-            from src.core.runtime_services import get_runtime_services, get_default_robot
+            from src.core.runtime_services import get_runtime_services
             rt = get_runtime_services()
             if rt.default_robot is not None or rt._stopped:
                 # RuntimeServices owns the poll loop; this thread should exit
@@ -935,8 +929,10 @@ WEB_PORT = 5004
 DEFAULT_ASSISTANT_NAME = "陪伴助手"
 
 # Demo mode is on by default so that "sitting-too-long reminder / low-interaction care" appear quickly on stage.
-# Production logic can set this to False.
-DEMO_MODE = True
+# It shortens SIT_REMINDER_SECONDS (60 s instead of 45 min), LOW_INTERACTION_SECONDS (75 s instead of 10 min)
+# and PROACTIVE_COOLDOWN_SECONDS (80 s instead of 15 min), and is echoed by /api/status.
+# A real deployment should set NUANYU_DEMO_MODE=false, otherwise the robot nags about once a minute.
+DEMO_MODE = os.environ.get("NUANYU_DEMO_MODE", "true").strip().lower() == "true"
 
 VISION_MOTION_THRESHOLD = 5000
 LEAVE_TIMEOUT_SECONDS = 6
@@ -950,9 +946,6 @@ SENSOR_ANNOUNCE_INTERVAL_SECONDS = float(
 # ======================== vision/FER configuration ========================
 VISION_ENABLED           = os.environ.get("VISION_ENABLED", "true").strip().lower() == "true"
 FER_ENABLED              = os.environ.get("FER_ENABLED", "true").strip().lower() == "true"
-FER_BACKEND              = os.environ.get("FER_BACKEND", "onnxruntime_cpu")
-FER_DISPLAY_ENABLED      = os.environ.get("FER_DISPLAY_ENABLED", "true").strip().lower() == "true"
-EMOTION_REACTION_ENABLED = os.environ.get("EMOTION_REACTION_ENABLED", "false").strip().lower() == "true"
 
 PROJECT_ROOT = APP_DIR
 MEMORY_FILE = os.path.join(PROJECT_ROOT, "user_memory.json")
@@ -1118,7 +1111,6 @@ USER_ROBOTS_LOCK = threading.Lock()
 
 def get_robot_for_user(username=None):
     """Get or create the robot instance owned by a user"""
-    global ROBOT, USER_ROBOTS
     if not username:
         return ROBOT
     with USER_ROBOTS_LOCK:
@@ -1955,9 +1947,7 @@ class NuanyuCore:
         user_text = str(user_text).strip()
         with self.lock:
             mood = self.current_mood
-            strategy = self.current_strategy
             goal = self.study_goal
-            recent_sessions = self.memory.get("recent_sessions", [])
 
         # user personalization info
         nickname = self.memory.get("nickname", "同学")
@@ -2051,11 +2041,9 @@ class NuanyuCore:
         _tts_session = None
         coordinator = None
         _greeting_submitted = False
-        _streaming_failed = False
         _first_token_received = False
         _first_token_ms = None   # when DeepSeek's first output token arrived, relative to ask_ai
         _submitted_segments = []
-        _first_segment_submitted_ms = None
         _first_tts_result_recorded = False
         _first_tts_result_lock = threading.Lock()
         full_text = ""
@@ -2088,17 +2076,13 @@ class NuanyuCore:
                     _first_tts_result_recorded = True
                     if isinstance(latency, dict) and latency.get("first_audio_ms"):
                         provider_ms = int(latency["first_audio_ms"])
-                        # Baseline changed to "AI's first output token" → first audio (excluding DeepSeek
+                        # Baseline is "AI's first output token" → first audio (excluding DeepSeek
                         # thinking time, which matches what the user feels: how long after the AI starts
                         # answering before speech is heard)
-                        end_to_end_ms = int((_first_segment_submitted_ms or 0)
-                                            + provider_ms - (_first_token_ms or 0))
                         stable_latency = dict(latency)
                         # The aggregated status latency reports the same real
                         # first-audio measurement as the chat bubble. It is
-                        # derived from the provider's raw first_audio_ms;
-                        # end_to_end_ms is a cumulative "submit→first audio"
-                        # value including DeepSeek thinking.
+                        # derived from the provider's raw first_audio_ms.
                         display_ms = _display_tts_ms(
                             latency.get("backend") or TTS_BACKEND,
                             provider_ms)
@@ -2254,8 +2238,6 @@ class NuanyuCore:
                                     continue
                                 if not _first_segment_submitted:
                                     _first_segment_submitted = True
-                                    _first_segment_submitted_ms = (
-                                        time.perf_counter() - _latency_started) * 1000
                                     print("[LATENCY:%s] first_tts_segment elapsed_ms=%.1f" %
                                           (trace_id, (time.perf_counter() - _latency_started) * 1000), flush=True)
                                 _dispatch_speech_motion()
@@ -2281,8 +2263,6 @@ class NuanyuCore:
                             continue
                         if not _first_segment_submitted:
                             _first_segment_submitted = True
-                            _first_segment_submitted_ms = (
-                                time.perf_counter() - _latency_started) * 1000
                             print("[LATENCY:%s] first_tts_segment elapsed_ms=%.1f" %
                                   (trace_id, (time.perf_counter() - _latency_started) * 1000), flush=True)
                         _dispatch_speech_motion()
@@ -2295,7 +2275,6 @@ class NuanyuCore:
 
         except Exception as e:
             # ── Streaming failed ─────────────────────────────────
-            _streaming_failed = True
             _state = "failed"
             print("[LATENCY:%s] STREAMING FAILED (%s_first_token=%s): %s"
                   % (trace_id, "after" if _first_token_received else "before",
@@ -2720,7 +2699,6 @@ class NuanyuCore:
         return prompt
 
     def handle_chat(self, text, source="web"):
-        _chat_started = time.perf_counter()
         text = str(text).strip()
         if not text or is_assistant_sleeping():
             return ""
@@ -4183,8 +4161,7 @@ def main():
 
     # ── RuntimeServices: single owner for all shared services ──
     # Creation order: config → services → robot → register → poll
-    from src.core.runtime_services import (get_runtime_services,
-                                           set_runtime_services)
+    from src.core.runtime_services import get_runtime_services
     rt = get_runtime_services()
     rt.load_config()
     print("[STARTUP] RuntimeServices config loaded")

@@ -46,7 +46,7 @@ sentinel it writes is still watched by the supervisor — see §7.3.
 
 `app/src/tts/doubao_provider.py`. Voices are an explicit allowlist enforced in the backend;
 each entry is a Doubao voice id plus its display name. The API key and resource id come from
-the environment (`config/tts_stream.env`, not committed). Requests go through the host-side
+the environment (`config/nuanyu.env`, not committed). Requests go through the host-side
 cloud proxy over an ADB reverse tunnel rather than directly to the internet.
 
 Unlike the other two backends, `stream` is submitted as **whole paragraphs** rather than
@@ -103,12 +103,17 @@ Both live in `app/src/tts/streaming_pipeline.py`.
 
 The segmenter buffers incoming text and cuts it at punctuation. Its rules:
 
-| Setting | Env | Default in the runtime |
-|---|---|---|
-| `min_chars` | `TTS_STREAM_MIN_CHARS` | 6 |
-| `soft_chars` | `TTS_STREAM_SOFT_CHARS` | 12 |
-| `max_chars` | `TTS_STREAM_MAX_CHARS` | 42 |
-| `first_soft_chars` | `TTS_STREAM_FIRST_SOFT_CHARS` | 8 |
+| Setting | Env | Default in the code | Shipped value |
+|---|---|---|---|
+| `min_chars` | `TTS_STREAM_MIN_CHARS` | 6 | 6 (unset) |
+| `soft_chars` | `TTS_STREAM_SOFT_CHARS` | 12 | **16** |
+| `max_chars` | `TTS_STREAM_MAX_CHARS` | 42 | **36** |
+| `first_soft_chars` | `TTS_STREAM_FIRST_SOFT_CHARS` | 8 | **6** |
+
+The shipped `config/nuanyu.env.example` shortens all three: `TTS_STREAM_FIRST_SOFT_CHARS`
+to `6`, `TTS_STREAM_SOFT_CHARS` to `16` and `TTS_STREAM_MAX_CHARS` to `36`. Shorter segments
+start playback sooner at the cost of more synthesis requests. It leaves
+`TTS_STREAM_MIN_CHARS` unset, matching the code default.
 
 - Strong endings (`。！？!?；;` and newline) and weak endings (`,，、：:`) both cut, as soon as
   the buffered segment reaches `min_chars`. Cutting only on strong punctuation makes the
@@ -203,18 +208,15 @@ The value is passed back through the callback as `{"first_audio_ms": …, "backe
 written to `/tmp/_last_tts_ms`, and rolled into the coordinator's latency log and the chat
 latency record shown in the UI.
 
-Two honest caveats:
+One honest caveat:
 
 - For `drizzle` the reported value is `synthesis_ms + 40`, using a measured ~40 ms `aplay`
   start-up cost rather than a second timestamp. It is an approximation, and the code says
   so.
-- The **display layer** is not the measurement. `_display_tts_ms()` in `app/nuanyu_web.py`
-  replaces a real value that falls below a plausibility floor (100 ms for `drizzle`,
-  1100 ms for `surge`) with a random value in a range, because a column of identical
-  numbers on a demo screen looked fabricated. The substitution is logged as
-  `[LATENCY-DISPLAY] backend=… real=… -> show=…` and only affects what the UI shows; it
-  does not change the recorded metric. If you are using these numbers as real measurements,
-  read the logs, not the UI.
+
+The value handed to the UI is the measurement, not a presentation of it: `_display_tts_ms()`
+in `app/nuanyu_web.py` returns the real number unmodified, so the UI column and the log
+agree.
 
 ## 4. Concurrency is pinned to 1
 
@@ -371,7 +373,8 @@ launch, scanning `/proc/asound/cards` for `lahaina-yupikiot` and exporting the r
 
 The same class of problem applies to the microphone: the capture device is addressed by
 stable name (`plughw:CARD=Device,DEV=0`, overridable with `ASR_MIC_DEVICE`), and its capture
-gain is restored at every start because a USB re-enumeration can reset it to 0%.
+gain is re-applied from the ASR capture loop at most once per 15 s, because a USB
+re-enumeration can reset it to 0%. The supervisor does **not** restore it at start.
 
 You can check what the board currently sees with `cat /proc/asound/cards`.
 
@@ -417,8 +420,9 @@ the status API reports which source is actually in use (`microphone: board` or
 
 ## 8. Configuration reference
 
-All of these are read from the environment, normally via `config/tts_stream.env` on the
-board (not committed — copy the template and fill it in).
+All of these are read from the environment, normally via `config/nuanyu.env` on the
+board (not committed — copy `config/nuanyu.env.example` to `config/nuanyu.env` and fill it
+in).
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -426,9 +430,9 @@ board (not committed — copy the template and fill it in).
 | `TTS_OPENING_DELAY_MS` | `1000` | Delay before the opening line plays (`surge` only) |
 | `TTS_STREAM_MAX_PENDING` | `3` | Coordinator in-flight segment limit |
 | `TTS_STREAM_MIN_CHARS` | `6` | Segmenter: minimum segment length |
-| `TTS_STREAM_SOFT_CHARS` | `12` | Segmenter: soft cut threshold after the first sentence |
-| `TTS_STREAM_MAX_CHARS` | `42` | Segmenter: hard segment limit |
-| `TTS_STREAM_FIRST_SOFT_CHARS` | `8` | Segmenter: soft cut threshold for the first sentence |
+| `TTS_STREAM_SOFT_CHARS` | `12` in code, **`16` in the shipped config** | Segmenter: soft cut threshold after the first sentence |
+| `TTS_STREAM_MAX_CHARS` | `42` in code, **`36` in the shipped config** | Segmenter: hard segment limit |
+| `TTS_STREAM_FIRST_SOFT_CHARS` | `8` in code, **`6` on the board** | Segmenter: soft cut threshold for the first sentence |
 | `TTS_SESSION_GRACE_SEC` | `10` | Idle time after which a stalled session releases the mic |
 | `SURGE_MAX_CONCURRENT` | `3` in code, **`1` on the board** | Synthesis thread pool size |
 | `SURGE_PLAY_STALL_TIMEOUT` | `60` | Seconds to wait for a missing sequence before skipping it |

@@ -149,11 +149,12 @@ Do not expose this to an untrusted network. Specifically:
 
 | Issue | Detail |
 |---|---|
+| Binds all interfaces | `WEB_HOST = "0.0.0.0"` in `app/nuanyu_web.py`. Not loopback-only — the `adb forward` tunnel makes it *look* loopback-only on the host, but the board's own listener is reachable from the board's LAN. |
 | No transport security | Plain HTTP on port 5004, no TLS anywhere. |
 | Weak password storage | Unsalted SHA-256. No salt, no work factor. Replace with a memory-hard KDF (Argon2/bcrypt/scrypt) before any real deployment. |
 | Development-grade sessions | Cookie sessions with no rotation or expiry policy worth the name. |
 | No rate limiting | Nothing throttles login attempts. |
-| Unauthenticated surface | Some routes answer before authentication; audit before exposing anything. |
+| Unauthenticated read routes | `/api/status`, `/api/sensors`, `/api/weather`, `/api/tts_status`, `/api/tts_audio` and `/display` all answer without a session. **`/api/users` enumerates account names and creation dates** to any caller — the most leaky of them. Audit the route table before exposing anything. |
 
 None of this is fixed, because fixing it changes behaviour the original deployment depends
 on. It is called out here so nobody deploys it believing it is production-ready.
@@ -208,7 +209,10 @@ These look like bugs and are not:
   listed in `tests/README.md`.
 - `test_vision_lifecycle.py` mocks the ONNX session and the camera, so the real inference
   path is not covered.
-- There is no CI. Nothing runs these tests automatically.
+- There is no CI in the published repository. A workflow is written and ready
+  (`.github/workflows/tests.yml` locally — pytest on 3.8/3.11/3.12 plus a byte-compile
+  pass) but could not be pushed: the pushing token lacks GitHub's `workflow` scope.
+  Run `gh auth refresh -h github.com -s workflow` and push again to enable it.
 
 ---
 

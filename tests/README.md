@@ -72,7 +72,7 @@ are fixtures, not localisation gaps. Please leave them as they are.
 would otherwise need hardware is mocked: the camera (`cv2`), the emotion model
 (`onnxruntime`), the ESP32 sensor node, the ALSA devices and the vendor
 `fiboaisdk`. This is deliberate — the suite is meant to be runnable on a laptop,
-and it is the reason a CI job can run it.
+and it is what makes the suite runnable anywhere, including in CI.
 
 If you add a test that genuinely cannot work off-board, skip it with a readable
 reason rather than letting it fail:

@@ -8,7 +8,6 @@ Agent B owns this file.
 from __future__ import annotations
 import json
 import os
-from typing import Any, Dict, List, Optional
 from src.ports.persona import Persona, PersonaService, VoiceProfile
 
 # The application's own directory (this file lives at app/src/services/).

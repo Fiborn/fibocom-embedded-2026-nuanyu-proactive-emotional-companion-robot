@@ -11,11 +11,15 @@ import os
 import sys
 import tempfile
 import unittest
+from typing import TYPE_CHECKING
 
 # The importable package lives in <repo>/app (app/src, app/static, ...).
 _APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app")
 if _APP not in sys.path:
     sys.path.insert(0, _APP)
+
+if TYPE_CHECKING:  # the helper below imports it lazily at call time
+    from src.services.memory_service import SqliteMemoryService
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -610,7 +614,7 @@ class TestNoOpStillWorks(unittest.TestCase):
         cls.svc = NoOpMemoryService()
 
     def test_save_and_retrieve_message(self):
-        mid = self.svc.save_message("u1", "s1", "user", "hello")
+        self.svc.save_message("u1", "s1", "user", "hello")
         msgs = self.svc.get_recent_messages("u1")
         self.assertGreaterEqual(len(msgs), 1)
         self.assertEqual(msgs[-1]["content"], "hello")

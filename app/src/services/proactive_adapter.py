@@ -2,9 +2,7 @@
 """ProactiveInteractionAdapter — bridges perception events to TTS/LLM execution."""
 from __future__ import annotations
 import collections, os, threading, time
-from typing import Any, Dict, List, Optional
 from src.domain.events import RuntimeEvent
-from src.ports.proactive import ProactiveDecision, ProactiveService
 
 
 # VisionWorker continuously analyzes frames.  These timers control when the

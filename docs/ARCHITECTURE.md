@@ -340,7 +340,7 @@ The unit wraps the script in `/bin/sh` on purpose, because files on the `/userda
 filesystem can lose their executable bit across a re-sync:
 
 ```ini
-ExecStart=/bin/sh /userdata_fibo/start_nuanyu_runtime.sh
+ExecStart=/bin/sh /userdata_fibo/deploy/start_nuanyu_runtime.sh
 Restart=always
 RestartSec=3
 TimeoutStopSec=12
@@ -501,7 +501,7 @@ they disagree with the code, the code is authoritative. Known conflicts:
 |---|---|
 | The startup chain is `start_xiaopei_robust.sh` → `start_xiaopei.sh` → `xiaopei-watchdog.service` | Those scripts are gone. `deploy/start_nuanyu_runtime.sh` is invoked directly by `deploy/nuanyu-runtime.service`. Enabling the old watchdog unit is forbidden. |
 | The web runtime is `xiaopei_web_v3.py` | `app/nuanyu_web.py`. |
-| Only `tts_stream.env` is sourced at startup | `c07a_motion.env` is sourced too, when present. |
+| Only `tts_stream.env` is sourced at startup | There is no `tts_stream.env` in the tree. The supervisor sources `config/nuanyu.env` (template: `config/nuanyu.env.example`), plus `config/c07a_motion.env` when present. |
 | A camera/audio failure should restart the runtime | Camera, sensor and host-service failures are non-fatal and never restart anything. |
 | The ASR result consumer polls every 200 ms | The loop now sleeps 50 ms; a 200 ms poll only made ASR feel slower. |
 | `deploy/start_nuanyu_runtime.sh` restores the USB capture gain and enables AGC on every start | The published script does neither. The ASR worker re-applies `Mic 100%` at most once per 15 s, which is what makes mic hot-plug recover without a restart. No AGC control is set anywhere in this repository. |

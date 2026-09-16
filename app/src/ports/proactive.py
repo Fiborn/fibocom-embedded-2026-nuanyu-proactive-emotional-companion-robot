@@ -6,8 +6,8 @@ Agent D owns this file and src/services/proactive_service.py.
 
 from __future__ import annotations
 import abc
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 from src.domain.events import RuntimeEvent
 

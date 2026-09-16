@@ -15,8 +15,8 @@ import hashlib
 import json
 import time
 import uuid
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 # ── Lightweight event record ───────────────────────────────────────
 
@@ -167,11 +167,6 @@ class ToolCallingCoordinator:
         if not tool_schemas:
             # No tools available — skip straight to plain reply
             return self._plain_reply(conversation, temperature), events
-
-        # Convert to OpenAI function-calling format
-        tools_payload = [
-            {"type": "function", "function": s} for s in tool_schemas
-        ]
 
         # ── Main loop ─────────────────────────────────────────────
         for loop_idx in range(self._max_loops):

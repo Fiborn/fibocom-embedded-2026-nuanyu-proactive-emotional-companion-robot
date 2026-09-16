@@ -7,7 +7,7 @@ All five Phase-2 services consume or produce subtypes of RuntimeEvent.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from enum import Enum
 
 

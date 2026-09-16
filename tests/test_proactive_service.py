@@ -21,7 +21,6 @@ Coverage:
 """
 
 from __future__ import annotations
-import copy
 import os
 import sys
 import unittest
@@ -36,7 +35,6 @@ from src.ports.proactive import ProactiveDecision, ProactiveService
 from src.services.proactive_service import (
     NoOpProactiveService,
     ProactiveServiceImpl,
-    CARE_EMOTIONS,
     EMOTION_STREAK_THRESHOLD,
 )
 

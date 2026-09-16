@@ -18,7 +18,6 @@ import os
 import subprocess
 import sys
 import threading
-import time
 from typing import Optional
 
 from src.sensors.sensor_state import SensorState, get_sensor_state

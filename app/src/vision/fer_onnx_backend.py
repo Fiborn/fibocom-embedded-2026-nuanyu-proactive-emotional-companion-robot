@@ -2,7 +2,7 @@
 """FER ONNX Runtime Backend — SC171 CPU.
 Loads ONNX model once, provides analyze(face_bgr) -> dict.
 """
-import sys, os, time
+import os, time
 import numpy as np
 import cv2
 

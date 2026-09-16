@@ -67,8 +67,7 @@ app/
   nuanyu_web.py          main service: HTTP routes, conversation loop, TTS routing
   fibo_tts.py            board speaker routing + ALSA mixer handling
   src/
-    asr/                 ASR worker, Fibocom DSP backend, Whisper CPU fallback
-    audio/               board microphone capture
+    asr/                 ASR worker and its Whisper-Tiny CPU backend
     connectivity/        C07A motion controller, optional L610 4G module
     core/                runtime service registry, DeepSeek client, reminder gate
     display/             Wayland expression renderer for the HDMI panel
@@ -85,7 +84,7 @@ app/
   static/  templates/    web UI (Chinese)
 config/                  environment templates — copy to *.env and fill in
 deploy/                  systemd unit and the board supervisor script
-docs/                    architecture, hardware, models, TTS backends, motion
+docs/                    architecture, hardware, models, TTS, motion, known issues
 tests/                   unit and contract tests
 tools/                   host-side helper servers
 ```
@@ -94,8 +93,9 @@ tools/                   host-side helper servers
 
 1. **Wake and capture.** The ASR worker holds the microphone open and applies voice
    activity detection with a deliberate pre-roll, so a wake word is never clipped.
-2. **Recognition.** The Fibocom DSP model handles ASR on the Hexagon NPU. A Whisper-Tiny
-   CPU backend exists as a fallback for boards without the vendor SDK.
+2. **Recognition.** Whisper-Tiny runs on the board CPU and is the **default** backend. The
+   board also carries a Fibocom DSP speech model, but **no backend for it ships in this
+   repository** — nothing in the tree references it. See `docs/MODELS.md`.
 3. **Conversation.** The transcript joins the user's memory context and persona, and goes
    to DeepSeek as a streaming request.
 4. **Speech.** The reply is segmented on punctuation and synthesised sentence by sentence,
@@ -149,16 +149,21 @@ and `config/` as siblings. Set `NUANYU_ROOT` to deploy the runtime elsewhere; th
 board uses `/userdata_fibo`. See `docs/HARDWARE.md` for the device details.
 
 ```bash
+# 0. Dependencies, on the board. The vendor SDK (fiboaisdk) is NOT on PyPI and
+#    must already be in the board image — see app/requirements.txt.
+pip3 install -r app/requirements.txt
+
 # 1. Host-side tunnels (the PC runs ZipVoice and the cloud proxy)
 adb forward tcp:5004 tcp:5004
+adb reverse tcp:5002 tcp:5002     # host microphone bridge (the `auto` failover)
 adb reverse tcp:5018 tcp:5018     # ZipVoice / Surge
 adb reverse tcp:5019 tcp:5019     # DeepSeek + Doubao proxy
 adb reverse tcp:5016 tcp:5016     # host camera fallback
 
 # 2. Configuration
-cp config/nuanyu.env.example   config/nuanyu.env      # then edit
-cp config/l610.env.example     config/l610.env        # only if using 4G
-cp config/c07a_motion.env.example config/c07a_motion.env
+cp config/nuanyu.env.example   config/nuanyu.env           # then edit
+cp config/l610.env.example     config/l610.env             # only if using 4G
+cp config/c07a_motion.env.example config/c07a_motion.env   # only if using the chassis
 
 # 3. Models — not included, see docs/MODELS.md
 
@@ -166,13 +171,17 @@ cp config/c07a_motion.env.example config/c07a_motion.env
 sh deploy/start_nuanyu_runtime.sh
 ```
 
+The host-side helpers in `tools/` have their own dependencies
+(`pip3 install -r tools/requirements.txt`) and run on the PC, not the board.
+
 Open `http://127.0.0.1:5004` and log in.
 
 ### Creating the first account
 
-The runtime only ever *reads* the account file — there is no registration endpoint. Accounts
-live in `app/memories/_users.json` (git-ignored, created on first run as an empty `{}`), and
-the password is an unsalted SHA-256 hex digest. Seed the first one yourself:
+The runtime only ever *reads* the account file — there is no registration endpoint and no
+seeding step, so a fresh install cannot be logged into at all. Accounts live in
+`app/memories/_users.json` (git-ignored; **you have to create it**), and the stored password
+is an unsalted SHA-256 hex digest. Seed the first account yourself:
 
 ```bash
 mkdir -p app/memories
@@ -220,14 +229,25 @@ look like bugs but are load-bearing.
 
 ## Security
 
-Before running this outside a lab, note that:
+**This is lab-grade code. Do not put it on an untrusted network.** Specifically:
 
-- The HTTP server has no transport security and ships a development-grade session model.
-  Do not expose port 5004 to an untrusted network.
-- Password hashing is unsalted SHA-256. Replace it with a memory-hard KDF before any
-  real deployment.
+- **The server binds `0.0.0.0`** (`WEB_HOST` in `app/nuanyu_web.py`), so it listens on every
+  interface, not just loopback. The `adb forward` tunnel most people use makes it *look*
+  loopback-only on the host, but the board's own listener is reachable from the board's LAN.
+- **Several routes answer without a session**, including `/api/status`, `/api/sensors`,
+  `/api/weather`, `/api/tts_status`, `/api/tts_audio` and `/display`. Notably
+  **`/api/users` enumerates account names and creation dates** to any caller.
+- **No transport security** — plain HTTP, no TLS anywhere — and a development-grade session
+  model with no rotation or expiry worth the name.
+- **No rate limiting** on login.
+- **Password hashing is unsalted SHA-256.** Replace it with a memory-hard KDF
+  (Argon2 / bcrypt / scrypt) before any real deployment.
 - Cloud credentials are read from the environment / `config/*.env`; the templates carry
   placeholders only.
+
+The bind address and the unauthenticated routes are not configurable without changing code,
+and were left as-is so the original deployment keeps working. `docs/KNOWN_ISSUES.md` §5 has
+the same list with the file references.
 
 ## Third-party components
 

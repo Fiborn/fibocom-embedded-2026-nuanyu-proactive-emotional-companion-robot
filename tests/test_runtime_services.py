@@ -5,9 +5,8 @@ Runs without board hardware, real models, or network.
 """
 import os
 import sys
-import threading
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 # The importable package lives in <repo>/app (app/src, app/static, ...).

@@ -28,14 +28,11 @@ API:
 """
 import io
 import os
-import sys
 import json
 import wave
 import time
 import queue
 import base64
-import struct
-import hashlib
 import tempfile
 import threading
 import subprocess

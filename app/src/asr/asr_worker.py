@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """ASR Worker — background thread for mic recording + Whisper transcription."""
-import sys, os, time, wave, threading, queue, subprocess, tempfile, struct
+import sys, os, time, wave, threading, queue, subprocess, tempfile
 import collections
 import urllib.request
 import numpy as np
@@ -59,8 +59,8 @@ class _RemoteMicStream:
     HTTP server.
 
     Same interface as arecord stdout: read(n) reads bytes, close() closes.
-    The socket timeout applies to each recv; on a continuous stream a 640-byte
-    frame takes ~20ms, so it never trips by mistake.
+    The socket timeout applies to each recv; on a continuous stream a 960-byte
+    frame takes ~30ms, so it never trips by mistake.
     """
 
     def __init__(self, url, timeout=8.0):

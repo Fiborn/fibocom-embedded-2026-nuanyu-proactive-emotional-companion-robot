@@ -39,7 +39,7 @@ Application state:
 | `/userdata_fibo/display.log`, `display.pid` | HDMI renderer |
 | `/userdata_fibo/.nuanyu_sleeping`, `.nuanyu_stop`, `.nuanyu_quiet` | interaction state markers (cleared at every start) |
 | `/userdata_fibo/.nuanyu_tts_unhealthy` | DSP-timeout sentinel read by the supervisor |
-| `/tts_output`, `/tmp/nuanyu_tts_output.wav`, `/tmp/drizzle_matcha`, `/tmp/drizzle_cache` | TTS scratch and the current WAV |
+| `/tmp/tts_output`, `/tmp/nuanyu_tts_output.wav`, `/tmp/drizzle_matcha`, `/tmp/drizzle_cache` | TTS scratch and the current WAV |
 
 ---
 
@@ -116,7 +116,7 @@ Environment variables: `FIBO_TTS_HPH_CARD`, `FIBO_TTS_HPH_DEVICE`,
 |---|---|
 | Default device | `plughw:CARD=Device,DEV=0` (`ASR_MIC_DEVICE`) |
 | Mixer card | `Device` (`ASR_MIC_CARD`) |
-| Format | 16 kHz, mono, S16_LE, read in 30 ms frames (640 bytes) |
+| Format | 16 kHz, mono, S16_LE, read in 30 ms frames (960 bytes) |
 | Owner | `app/src/asr/asr_worker.py` |
 
 ### Gain restore on hot-plug
@@ -166,6 +166,12 @@ microphone source (`board` / `remote` / `none`) is part of the ASR health payloa
 | Max utterance / max listen | 8 s / 30 s | `ASR_MAX_UTTERANCE_SEC`, `ASR_MAX_LISTEN_SEC` |
 | Mic settle after playback | 1000 ms | `ASR_MIC_SETTLE_MS` |
 
+Note that the first two are the **code** defaults. The shipped `config/nuanyu.env.example`
+overrides them to a more sensitive `ASR_SILENCE_THRESHOLD=60` and a longer
+`ASR_SILENCE_TAIL_MS=500`. Both are plain integers — `ASR_SILENCE_THRESHOLD` is an RMS level
+on the int16 scale, *not* a 0–1 fraction, and a non-integer value raises at import and
+disables the ASR worker.
+
 The 300 ms pre-roll and the 2 s padding exist so the first phoneme of a wake word is
 never clipped and so the recognition SDK is not handed an utterance shorter than its
 minimum. The noise floor is calibrated from the median of the first ~10 frames rather
@@ -204,8 +210,9 @@ labels), smoothed over time to stop the displayed expression flickering. The wor
 also maintains a sticky person-presence flag with hysteresis (4 s hold, 8 s exit), so a
 brief head turn does not immediately flip the robot to "away".
 
-Configurable via `CAMERA_DEVICE`, `CAMERA_FALLBACK_URL`, `VISION_ENABLED`,
-`FER_ENABLED`.
+Configurable via `CAMERA_DEVICE`, `CAMERA_FALLBACK_URL` and `VISION_ENABLED`. `FER_ENABLED`
+is **not** honoured: it is read only into the config report, and expression recognition is
+not gated on it — `VISION_ENABLED=false` is the only switch that turns the worker off.
 
 ---
 
@@ -386,8 +393,10 @@ other port is a **reverse** tunnel, i.e. a host service that the board dials as
 Not an ADB tunnel: **port 5005** is a LAN gateway opened by the desktop shell on the
 host so a phone running the mini-program can reach the board's `/api/*`. It is
 implemented in the desktop launcher, not in this repository, and it forwards API routes
-only. Port 5004 is a host loopback port created by `adb forward` and is not reachable
-from another device.
+only. On the **host**, port 5004 is a loopback port created by `adb forward` and is not
+reachable from another device. On the **board** the listener binds `0.0.0.0`
+(`WEB_HOST` in `app/nuanyu_web.py`), so the web service is reachable on whatever
+interfaces the board itself has.
 
 Example manual setup:
 
@@ -419,7 +428,8 @@ variables, the health checks and this document in the same change.
 | `CAMERA_DEVICE` | `/dev/video2` | board camera |
 | `CAMERA_FALLBACK_URL` | `http://127.0.0.1:5016/camera.jpg` | host camera fallback |
 | `SENSOR_ENABLED`, `SENSOR_BAUD`, `SENSOR_RUN_SECONDS` | `true`, `115200`, `86400` | sensor node |
-| `VOICE_PORT`, `VOICE_BAUD` | `/dev/ttyHS1`, `9600` | voice module UART |
+| `VOICE_PORT`, `VOICE_BAUD` | `/dev/ttyHS1`, `9600` | voice module UART — honoured: `app/nuanyu_web.py` reads both from the environment and opens the port with them. `VOICE_BAUD` is parsed as an integer |
+| `FER_ENABLED` | `true` | **accepted but ignored** — read only into the config report; `VisionWorker` never consults it |
 | `C07A_MOTION_PORT`, `C07A_MOTION_BAUD`, `C07A_MOTION_MOCK`, `MOTION_FEEDBACK_ENABLED` | empty, `115200`, `true`, `false` | motion controller (inert by default) |
 | `L610_BROKER_HOST`, `L610_BROKER_PORT`, `L610_DEVICE_ID`, `L610_DEVICE_SECRET` | empty | 4G module (unconfigured means disabled) |
 | `ZIPVOICE_SERVER_URL` | `http://127.0.0.1:5018` | host TTS for `surge` |

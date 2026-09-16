@@ -233,9 +233,9 @@ class OpenMeteoWeatherProvider:
         except urllib.error.URLError as exc:
             raise RuntimeError(f"天气服务暂时不可用：{_url_error_msg(exc)}") from exc
         except json.JSONDecodeError as exc:
-            raise RuntimeError(f"天气数据解析失败") from exc
+            raise RuntimeError("天气数据解析失败") from exc
         except Exception as exc:
-            raise RuntimeError(f"天气服务暂时不可用") from exc
+            raise RuntimeError("天气服务暂时不可用") from exc
 
 
 def _url_error_msg(exc: urllib.error.URLError) -> str:

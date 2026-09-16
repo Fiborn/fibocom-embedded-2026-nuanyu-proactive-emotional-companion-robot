@@ -10,12 +10,9 @@ These tests validate that the Phase 1 refactoring did not break:
 - Shutdown idempotency
 """
 import collections
-import os
 import pathlib
 import sys
-import threading
 import unittest
-from unittest.mock import MagicMock, patch
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 ROOT = REPO_ROOT / "app"

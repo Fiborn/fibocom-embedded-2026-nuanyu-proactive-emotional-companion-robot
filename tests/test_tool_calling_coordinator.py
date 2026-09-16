@@ -11,8 +11,8 @@ import json
 import os
 import sys
 import unittest
-from typing import Any, Dict, List, Optional, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, List, Tuple
+from unittest.mock import MagicMock
 
 # The importable package lives in <repo>/app (app/src, app/static, ...).
 _APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app")
@@ -392,7 +392,7 @@ class TestToolCallingCoordinator(unittest.TestCase):
         """Only the 3 sprint tools: set_reminder, remember_user_fact,
         get_device_status.  No weather."""
         svc = _mk_tool_svc()
-        tcc = self.TCC(_mk_deepseek_client(), self.api_key, svc)
+        self.TCC(_mk_deepseek_client(), self.api_key, svc)
         schemas = svc.get_tool_schemas(None)
         names = {s["name"] for s in schemas}
         self.assertIn("set_reminder", names)

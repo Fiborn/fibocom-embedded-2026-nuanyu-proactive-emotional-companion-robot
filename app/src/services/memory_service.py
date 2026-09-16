@@ -6,7 +6,6 @@ Agent A owns this file and src/memory/.
 
 from __future__ import annotations
 
-import json
 import os
 import uuid
 from typing import Any, Dict, List, Optional

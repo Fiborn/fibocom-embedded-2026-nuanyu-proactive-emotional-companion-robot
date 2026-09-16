@@ -43,7 +43,6 @@ class TestDomainModels(unittest.TestCase):
         act = AgentAction(
             action_type="tool_call", tool_name="weather",
             tool_arguments={"city": "上海"}, trace_id="tr1")
-        d = act.__dict__ if hasattr(act, '__dict__') else {}
         self.assertEqual(act.tool_name, "weather")
 
     def test_tool_result_error(self):
@@ -66,7 +65,7 @@ class TestNoOpMemoryService(unittest.TestCase):
         cls.svc = NoOpMemoryService()
 
     def test_save_and_retrieve_message(self):
-        mid = self.svc.save_message("u1", "s1", "user", "hello")
+        self.svc.save_message("u1", "s1", "user", "hello")
         msgs = self.svc.get_recent_messages("u1")
         self.assertGreaterEqual(len(msgs), 1)
         self.assertEqual(msgs[-1]["content"], "hello")

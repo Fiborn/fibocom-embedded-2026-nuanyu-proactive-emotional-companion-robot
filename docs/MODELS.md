@@ -14,7 +14,7 @@ relative to the board runtime root (default `/userdata_fibo`).
 | 1 | Matcha-TTS `matcha-icefall-zh-baker` | `models/tts/drizzle/matcha-icefall-zh-baker/` | 139 MB | Board | Yes — open |
 | 2 | Piper `zh_CN-huayan-medium` | `models/tts/drizzle/zh_CN-huayan-medium.onnx` | 61 MB | Board | Yes — open |
 | 3 | Piper `zh_CN-huayan-x_low` | `models/tts/drizzle/zh_CN-huayan-x_low.onnx` | 20 MB | Board | Yes — open |
-| 4 | Fibocom ASR `fiboasr_base_v1_0711` | `models/asr/fiboasr_base_v1_0711/` | 228 MB | Board DSP | **No — vendor** |
+| 4 | Fibocom ASR `fiboasr_base_v1_0711` — **not used**, see below | `models/asr/fiboasr_base_v1_0711/` | 228 MB | Board DSP | **No — vendor** |
 | 5 | Fibocom TTS `fibotts_1.0.0` | `tts_client/tts_models/` | 125 MB | Board DSP | **No — vendor** |
 | 6 | ZipVoice decoder + vocoder | `models/zipvoice_onnx/` | 171 MB | Host PC | Yes — open |
 | 7 | Surge / ZipVoice distill int8 | `models/tts/surge/sherpa-onnx-zipvoice-distill-int8-zh-en-emilia/` | 197 MB | Host PC | Yes — open |
@@ -22,7 +22,7 @@ relative to the board runtime root (default `/userdata_fibo`).
 | 9 | Surge `zipvoice_gpu` | `models/tts/surge/zipvoice_gpu/` | 911 MB | Host PC | Yes — open |
 | 10 | Vocos vocoder | `models/tts/surge/vocos_24khz.onnx` | 52 MB | Host PC | Yes — open |
 | 11 | FER emotion classifier | `fer_ort/fer_emotion_clean.onnx` | 244 KB | Board | Yes — open |
-| 12 | Whisper Tiny (CPU ASR fallback) | `asr_whisper_test/models/whisper_tiny_cpu.fmodel` | small | Board CPU | Yes — open |
+| 12 | Whisper Tiny (default ASR backend) | `asr_whisper_test/models/whisper_tiny_cpu.fmodel` | small | Board CPU | Yes — open |
 
 ## 1–3. Board-side TTS — the `drizzle` backend
 
@@ -56,6 +56,10 @@ obtained from Fibocom or copied from a board that already has them. `tts_client/
 contains the `fibo_tts.py` SDK binding and the license file the SDK looks for at
 `/home/fibo/qcom_6490_license`.
 
+`fibotts_1.0.0` is reachable only through `app/fibo_tts.py`'s own DSP synthesis API
+(`FIBO_TTS_ENGINE=fibo`); no default speech path calls it. `fiboasr_base_v1_0711` is not
+referenced by any module in this tree — the runtime's ASR backend is Whisper Tiny (§12).
+
 ## 6–10. Host-PC TTS — the `surge` backend
 
 Zero-shot voice cloning, driven by `tools/zipvoice_server_v2.py` on the host and reached
@@ -74,11 +78,14 @@ does not contend with the DSP models.
 Face *detection* does not use a learned model: `vision_worker.py` uses OpenCV's Haar cascade
 (`haarcascade_frontalface_default.xml`), which ships with OpenCV itself.
 
-## 12. Whisper Tiny — CPU ASR fallback
+## 12. Whisper Tiny — the default ASR backend
 
-A Fibo-AI-Stack conversion of Whisper Tiny, used when `ASR_BACKEND=whisper_tiny_cpu` and the
-vendor DSP model is unavailable. Whisper is open (MIT); the `.fmodel` here is only a
-container conversion.
+A Fibo-AI-Stack conversion of Whisper Tiny, loaded by `WhisperTinyCpuBackend`
+(`app/src/asr/whisper_tiny_cpu_backend.py`). This is the ASR model the runtime actually uses:
+`ASR_BACKEND=whisper_tiny_cpu` is the default in `deploy/start_nuanyu_runtime.sh`,
+`config/nuanyu.env.example` and the runtime-config default, and `ASR_FALLBACK_BACKEND` is
+`none` — there is no second ASR backend behind it. Whisper is open (MIT); the `.fmodel` here
+is only a container conversion.
 
 ## Assets on the board that are NOT used
 
@@ -94,6 +101,12 @@ cv_models/openface.fmodel
 **Nothing in this codebase references any of them.** Face detection is the OpenCV Haar
 cascade and emotion classification is the ONNX model above. These are leftovers from an
 earlier Fibocom CV-SDK experiment and can be deleted from a board to reclaim the space.
+
+Also unused is the Fibocom ASR model `models/asr/fiboasr_base_v1_0711/` (item 4 above): no
+module in this tree references it, and the tree contains no Fibocom ASR backend — `app/src/asr/`
+holds only `asr_worker.py` and `whisper_tiny_cpu_backend.py`. The ASR model the runtime
+actually loads is Whisper Tiny (§12). Unlike the `cv_models/` leftovers it is a vendor asset,
+so it can only be reinstated by installing it on a board, not from this repository.
 
 ## Installing models on a new board
 

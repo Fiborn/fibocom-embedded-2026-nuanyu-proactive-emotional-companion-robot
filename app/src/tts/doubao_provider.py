@@ -21,7 +21,7 @@ Config via env:
 Voice selection persisted to <NUANYU_ROOT>/data/stream_voice.json.
 """
 
-import os, sys, time, json, uuid, base64, threading, subprocess, ssl, queue, wave, struct, audioop
+import os, sys, time, json, uuid, base64, threading, subprocess, ssl, queue, wave, audioop
 import urllib.request
 from src.tts.audio_router import output_mode, play_on_pc_file
 

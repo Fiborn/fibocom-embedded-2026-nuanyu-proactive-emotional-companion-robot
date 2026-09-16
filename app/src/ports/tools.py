@@ -7,7 +7,7 @@ Agent C owns this file and src/services/tool_service.py.
 from __future__ import annotations
 import abc
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from src.domain.models import ToolResult
 

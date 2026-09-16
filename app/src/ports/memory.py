@@ -6,7 +6,7 @@ Agent A owns this file and src/services/memory_service.py.
 
 from __future__ import annotations
 import abc
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 
 class MemoryService(abc.ABC):

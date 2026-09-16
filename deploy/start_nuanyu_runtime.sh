@@ -64,8 +64,10 @@ export FIBO_TTS_HPH_DEVICE="${FIBO_TTS_HPH_DEVICE:-0}"
 export ZIPVOICE_SERVER_URL="${ZIPVOICE_SERVER_URL:-http://127.0.0.1:5018}"
 export DEEPSEEK_BASE_URL="${DEEPSEEK_BASE_URL:-http://127.0.0.1:5019}"
 export DOUBAO_TTS_API_URL="${DOUBAO_TTS_API_URL:-http://127.0.0.1:5019/doubao/tts}"
-export ORT_NUM_INTRAOP_THREADS="${ORT_NUM_INTRAOP_THREADS:-2}"
-export ORT_NUM_INTEROP_THREADS="${ORT_NUM_INTEROP_THREADS:-1}"
+# ONNX Runtime thread counts are pinned in code, not here: the FER backend sets
+# both to 1 (app/src/vision/fer_onnx_backend.py). ORT_NUM_INTRAOP_THREADS and
+# ORT_NUM_INTEROP_THREADS used to be exported here but nothing reads them -
+# not ONNX Runtime, and no module in this tree.
 export VOICE_BAUD="${VOICE_BAUD:-9600}"
 
 web_pid=""

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Whisper Tiny CPU ASR backend via Fibocom AudioAPI."""
-import sys, os, time, wave, tempfile
+import sys, os, time, wave
 
 # Deployment root — overridable so the app can run outside /userdata_fibo.
 # With NUANYU_ROOT unset the default reproduces the on-board layout exactly.

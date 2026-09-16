@@ -11,7 +11,6 @@ Verifies:
 """
 
 import collections
-import threading
 import unittest
 import uuid
 

@@ -43,7 +43,6 @@ class TestResolveTargetRobot(unittest.TestCase):
     def _make_resolve(self, robot_ref):
         """Simulate the module-level function."""
         def resolve():
-            nonlocal robot_ref
             if robot_ref is None or not getattr(robot_ref, "running", False):
                 return None
             return robot_ref

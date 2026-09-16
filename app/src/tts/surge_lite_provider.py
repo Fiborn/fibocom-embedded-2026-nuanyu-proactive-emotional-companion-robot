@@ -28,8 +28,6 @@ import time
 import queue
 import base64
 import threading
-import subprocess
-import struct
 import wave
 import io as _io
 

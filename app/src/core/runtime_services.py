@@ -31,7 +31,6 @@ import os
 import sys
 import threading
 import time
-import traceback
 from typing import Any, Callable, Dict, List, Optional
 
 # The application's own directory (this file lives at app/src/core/).
@@ -162,7 +161,7 @@ class RuntimeServices:
         _runtime_log("-", "runtime", "init_start")
 
         # ── Step 1: Config ──
-        cfg = self.load_config()
+        self.load_config()
         self._startup_seq.append("config")
 
         # ── Step 2: Create shared services ──
@@ -300,14 +299,12 @@ class RuntimeServices:
             ("cloud_sync","NoOpCloudSyncService","OfflineQueueCloudService","cloud_sync_service"),
         ]:
             svc = None
-            backend = "noop_fallback"
             try:
                 mod = __import__(
                     "src.services." + slot_name.replace("_service", "_service"),
                     fromlist=["*"])
                 real_cls = getattr(mod, real_cls_name)
                 svc = real_cls()
-                backend = "real"
                 _runtime_log("-", svc_name, "loaded",
                              state="real", detail=real_cls_name)
             except Exception as exc:
