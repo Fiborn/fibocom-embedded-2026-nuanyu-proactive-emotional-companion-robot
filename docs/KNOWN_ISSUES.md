@@ -209,10 +209,8 @@ These look like bugs and are not:
   listed in `tests/README.md`.
 - `test_vision_lifecycle.py` mocks the ONNX session and the camera, so the real inference
   path is not covered.
-- There is no CI in the published repository. A workflow is written and ready
-  (`.github/workflows/tests.yml` locally — pytest on 3.8/3.11/3.12 plus a byte-compile
-  pass) but could not be pushed: the pushing token lacks GitHub's `workflow` scope.
-  Run `gh auth refresh -h github.com -s workflow` and push again to enable it.
+- CI (`.github/workflows/tests.yml`) runs the suite on every push and pull request across
+  Python 3.8/3.11/3.12, plus a byte-compile pass over `app/`, `tools/` and `tests/`.
 
 ---
 
