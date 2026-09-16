@@ -7,7 +7,8 @@ what is wrong, how to tell whether it has bitten you, and what to do.
 
 ## 1. The deployed runtime and this repository can drift apart
 
-**This is the most likely source of "but it works on my machine" confusion.**
+**The shipped launcher has been verified to match this repository — but a stale copy of it
+exists on disk, and launching that one silently downgrades the board.**
 
 The board does not run this repository directly. In the original deployment a Windows
 desktop launcher (`暖语.exe`, built from `desktop/` in the internal tree) connects over
@@ -24,6 +25,34 @@ If the EXE is older than the board, launching it **silently downgrades the board
 reports this — the sync succeeds, the service restarts, and the runtime is now running
 different code than you think.
 
+### Verification status of the known artifacts
+
+The reference deployment was checked by extracting the EXE's embedded payload and comparing
+all **30 push destinations** against the board, by content hash:
+
+| Artifact | Built | Verdict |
+|---|---|---|
+| `D:\Users\35190\Desktop\暖语.exe` (sha256 `9397d39f…49838e`) | 2026-08-11 00:21 +0800 | **Matches the board — 30/30 destinations byte-identical.** Launching it is a no-op. |
+| `dist/暖语.exe` in the upstream repo | 2026-08-10 22:26 +0800 | **Stale. Would downgrade two files** — see below. |
+
+> **The trap.** The upstream repository force-tracks `dist/暖语.exe` even though `dist/` is in
+> `.gitignore`, so it travels with every clone and looks exactly like the deliverable. It
+> predates the last commit and, if run, reverts `xiaopei_web_v3.py` (losing the latency
+> final-write fix) and `src/connectivity/c07a_motion.py` (losing the late-ACK guard that
+> stops STOP cascades). **Check which EXE you are running before you run it.**
+
+### This repository is ahead of the board
+
+The published code carries two deliberate behavioural fixes that are **not** on the board and
+**not** in any EXE:
+
+- removal of `SENSOR_SIM_FALLBACK` and the radar-forcing path (`app/src/sensors/`), and
+- removal of the fabricated TTS latency in `_display_tts_ms()`.
+
+If you apply those to the board by hand, **a later EXE launch will silently revert them**,
+because the EXE pushes its own copies of those files. Re-syncing and re-fixing is the
+workaround; removing the duplicate copy of the code is the fix.
+
 ### How to tell which revision the board is on
 
 Compare a file the EXE also ships. `nuanyu_web.py` (formerly `xiaopei_web_v3.py`) is the
@@ -39,11 +68,16 @@ never infer the revision from the EXE's file timestamp (see §2).
 
 ### Why timestamps will mislead you
 
-The EXE's mtime is when the **build finished**, not when the payload was captured. A
-PyInstaller onefile build of ~98 MB runs for several minutes, so a payload can predate an
-EXE's timestamp by more than the gap between the last commit and the build. In the original
-tree the gap was ~44 seconds — far too short for a build, which is itself the tell that the
-build started *before* the last commit landed.
+An EXE's mtime is when the **build finished**, not when the file contents were captured, and
+nothing in the file records which revision it bundles. Two builds an hour apart can carry
+wildly different code, and a build can be named or dated in a way that suggests the opposite.
+
+This is not hypothetical. During verification the shipped launcher's timestamp sat only
+~44 seconds after the last commit, which looked too tight to be a real build and suggested it
+might predate that commit. **That inference was wrong** — extracting the payload showed the
+file matched exactly. Meanwhile a *differently named* copy of the launcher, only two hours
+older, turned out to be the one that would have downgraded the board. The timestamps pointed
+at the wrong suspect in both directions.
 
 **Compare content hashes, never timestamps.**
 
@@ -64,10 +98,16 @@ At the time of capture the board reported `2026-08-11` while the real date was o
 later. It has no working time source, so **every file timestamp on the board is relative to a
 clock that has stopped**.
 
+The board also runs **UTC**, while a typical developer machine is on local time. So a naive
+comparison of board mtimes against your own is wrong twice over — by the timezone offset
+*and* by however long the board's clock has been dead. (During verification, a batch of board
+files stamped `Aug 11 02:01` were actually pushed at `10:01` local time, and the clock had
+already been stopped for weeks.)
+
 Consequences:
 
 - File mtimes on the board cannot be compared with timestamps on your PC without first
-  establishing the offset.
+  establishing both the timezone offset and the drift.
 - Anything that keys off wall-clock time — token expiry, TLS certificate validation, log
   correlation, `Last-Modified` headers — behaves unexpectedly.
 - Log lines from the board carry misleading dates.
