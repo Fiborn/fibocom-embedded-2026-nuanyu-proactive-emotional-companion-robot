@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#F5F2EB" />
+  <title>暖语 · 主动式情感陪伴</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/static/css/tokens.css?v=20260724-layout2" />
+  <link rel="stylesheet" href="/static/css/main.css?v=20260725-persona-voice-2" />
+  <style>
+    /* ── Sprint UI: Settings Panel ── */
+    .settings-panel { margin-top: 15px; border-top: 1px solid rgba(0,0,0,.08); padding-top: 14px; }
+    .settings-head { margin-bottom: 10px; }
+    .settings-head h3 { margin: 2px 0 0; font-size: 1rem; font-weight: 600; color: #3a3a3a; }
+    .settings-group { margin-bottom: 12px; }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
+    .settings-row-toggle { padding: 7px 0; }
+    .settings-label { font-size: .82rem; color: #777; }
+    .settings-row strong { font-size: .84rem; font-weight: 600; color: #3a3a3a; }
+    .settings-row small { display: block; font-size: .72rem; color: #999; margin-top: 1px; }
+    .settings-status { padding: 8px 10px; background: rgba(0,0,0,.025); border-radius: 8px; }
+    .settings-status .settings-row + .settings-row { border-top: 1px solid rgba(0,0,0,.05); margin-top: 2px; padding-top: 6px; }
+
+    .persona-selector { display: flex; gap: 4px; }
+    .persona-btn { padding: 4px 10px; font-size: .78rem; border: 1px solid rgba(0,0,0,.15); border-radius: 16px; background: #fff; color: #555; cursor: pointer; transition: all .15s; }
+    .persona-btn:hover { border-color: #d4915a; color: #b8652e; }
+    .persona-btn[aria-pressed="true"] { background: #f0e2d3; border-color: #d4915a; color: #8b4a1d; font-weight: 600; }
+
+    .toggle-switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track { position: absolute; inset: 0; background: #ccc; border-radius: 22px; cursor: pointer; transition: background .2s; }
+    .toggle-track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+    .toggle-switch input:checked + .toggle-track { background: #d4915a; }
+    .toggle-switch input:checked + .toggle-track::after { transform: translateX(18px); }
+    .toggle-switch input:disabled + .toggle-track { opacity: .45; cursor: not-allowed; }
+  
+    .settings-row select { font-family: var(--font-ui); color: #3a3a3a; }
+    .role-name-control { display: flex; gap: 6px; align-items: center; }
+    .role-name-control input { width: 116px; padding: 5px 8px; border: 1px solid rgba(0,0,0,.15); border-radius: 7px; font: inherit; font-size: .8rem; background: #fff; }
+    .role-name-control button { padding: 5px 9px; border: 1px solid #d4915a; border-radius: 7px; background: #f0e2d3; color: #8b4a1d; cursor: pointer; font-size: .76rem; }
+    .role-name-hint { display: block; min-height: 1em; margin-top: 3px; text-align: right; font-size: .68rem; color: #777; }
+
+    .quiet-mode-control { display: flex; align-items: center; gap: 8px; }
+    .quiet-mode-control .quiet-mode-state { color: #8b8177; font-size: .68rem; white-space: nowrap; }
+    .sleep-button.is-quiet { color: #8b4a1d; background: #f0e2d3; border-color: #d4915a; }
+
+</style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand" aria-label="暖语">
+      <span class="brand-index">NY · 01</span>
+      <div class="brand-copy">
+        <strong>暖语</strong>
+        <span>桌面陪伴机器人</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <label class="voice-mode-control" for="ttsModeSelect">
+        <span class="voice-mode-label">声音</span>
+        <span class="voice-mode-select-wrap">
+          <select id="ttsModeSelect" class="voice-mode-select" aria-label="选择声音模式" title="切换 TTS 模式">
+            <option value="drizzle">Drizzle</option>
+            <option value="stream">Stream</option>
+            <option value="surge">Surge</option>
+          </select>
+          <svg class="voice-mode-chevron" viewBox="0 0 12 8" aria-hidden="true"><path d="m1.5 1.5 4.5 4 4.5-4" /></svg>
+        </span>
+      </label>
+      <span class="header-divider" aria-hidden="true"></span>
+      <span id="userTag" class="user-label">同学</span>
+      <button id="sleepButton" class="quiet-button sleep-button" type="button" title="进入全程静默，可通过语音唤醒">让角色休息</button>
+      <button class="quiet-button account-button" type="button" onclick="doLogout()">切换账号</button>
+      <button class="quiet-button danger" type="button" onclick="shutdownNuanyu()">退出</button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="character-stage" aria-labelledby="characterStatus">
+      <div class="editorial-rule" aria-hidden="true"><span>LISTENING / LEARNING / STAYING</span></div>
+      <div class="stage-wash" aria-hidden="true"></div>
+      <div class="stage-note" aria-hidden="true">今天只做<br>眼前这一步</div>
+
+      <div id="nuanyuScene" class="nuanyu-scene">
+        <div class="character-shadow" aria-hidden="true"></div>
+        <svg id="nuanyuCharacter" class="nuanyu-character sun-character" data-state="idle" viewBox="0 0 520 520" role="button" tabindex="0" aria-labelledby="nuanyuSvgTitle" aria-label="陪伴角色，点击让它动一动">
+          <title id="nuanyuSvgTitle">陪伴角色正在陪伴中</title>
+          <g class="sun-rays">
+            <path class="ray amber" d="M246 8c14 6 18 47 8 73-5 13-17 14-23 0-10-25-3-67 15-73Z"/>
+            <path class="ray gold" d="M167 25c16-3 34 34 33 65-1 14-12 19-22 7-18-21-27-67-11-72Z"/>
+            <path class="ray orange" d="M91 75c14-8 42 20 51 47 5 14-4 22-18 15-25-12-48-53-33-62Z"/>
+            <path class="ray rust" d="M35 147c8-14 47-1 67 19 10 10 5 21-10 21-28 0-65-25-57-40Z"/>
+            <path class="ray sand" d="M11 234c2-17 47-19 76-8 14 5 15 17 1 24-26 13-79 2-77-16Z"/>
+            <path class="ray gold" d="M25 324c-4-16 38-33 68-30 15 2 19 13 7 23-22 19-70 24-75 7Z"/>
+            <path class="ray orange" d="M74 403c-10-13 22-45 49-55 14-5 22 4 16 18-12 27-54 51-65 37Z"/>
+            <path class="ray amber" d="M151 463c-15-7-3-49 18-70 10-11 21-6 21 10 0 29-23 68-39 60Z"/>
+            <path class="ray sand" d="M239 489c-17-1-20-46-10-75 5-14 17-16 24-2 14 26 4 78-14 77Z"/>
+            <path class="ray gold" d="M326 478c-16 4-32-38-28-68 2-15 14-18 24-6 18 23 21 71 4 74Z"/>
+            <path class="ray amber" d="M404 427c-13 10-45-22-54-50-4-14 6-22 19-15 26 13 49 54 35 65Z"/>
+            <path class="ray orange" d="M464 350c-7 15-50 2-70-19-10-11-5-22 10-21 29 1 68 24 60 40Z"/>
+            <path class="ray sand" d="M492 260c0 17-45 22-75 12-14-5-16-17-2-24 26-14 77-6 77 12Z"/>
+            <path class="ray rust" d="M476 169c5 16-37 34-67 31-15-1-19-13-7-23 22-20 69-25 74-8Z"/>
+            <path class="ray gold" d="M427 89c11 13-21 45-49 56-14 5-22-4-16-18 12-27 54-52 65-38Z"/>
+            <path class="ray orange" d="M350 31c15 7 3 48-17 70-10 11-21 6-21-9 0-29 22-69 38-61Z"/>
+          </g>
+          <path class="sun-disc" d="M112 202c19-74 85-122 163-121 79 2 142 53 157 130 15 76-25 155-94 188-68 32-154 12-199-48-33-44-42-98-27-149Z" />
+          <ellipse class="sun-wash" cx="253" cy="238" rx="137" ry="142" />
+          <g class="sun-brows" fill="none" stroke-linecap="round">
+            <path class="sun-brow left" d="M179 220c13-8 26-8 38 1"/><path class="sun-brow right" d="M300 218c13-8 27-6 38 4"/>
+          </g>
+          <g class="sun-eyes" fill="none" stroke-linecap="round">
+            <path class="sun-eye-closed left" d="M170 245c14-17 32-16 45 1"/><path class="sun-eye-closed right" d="M296 244c14-17 33-16 46 2"/>
+            <path class="sun-eye-sleep left" d="M170 245c14 16 32 16 45 0"/><path class="sun-eye-sleep right" d="M296 244c14 16 33 16 46 0"/>
+            <circle class="sun-eye-open left" cx="194" cy="246" r="6"/><circle class="sun-eye-open right" cx="319" cy="246" r="6"/>
+            <path class="sun-eye-happy left" d="M174 250c13 10 27 10 39-1"/><path class="sun-eye-happy right" d="M299 250c13 10 27 10 39-1"/>
+            <path class="sun-eye-wink right" d="M299 248c13 7 26 7 38-1"/>
+            <circle class="sun-eye-glint left" cx="197" cy="243" r="2.3"/><circle class="sun-eye-glint right" cx="322" cy="243" r="2.3"/>
+          </g>
+          <path class="sun-nose" d="M262 225c-3 24-7 49-9 72-1 14 5 19 19 18l17-2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <g class="sun-mouth" fill="none" stroke-linecap="round">
+            <path class="mouth-neutral" d="M225 333c24 20 59 21 86 0"/><path class="mouth-smile" d="M217 326c27 27 69 29 100 1"/>
+            <path class="mouth-pout" d="M249 342c12-9 26-9 38 0"/><ellipse class="mouth-open" cx="267" cy="340" rx="18" ry="10"/><ellipse class="mouth-o" cx="267" cy="341" rx="9" ry="12"/>
+            <path class="mouth-focus" d="M246 338c14 1 27 1 41-1"/>
+          </g>
+          <g class="sun-cheeks"><ellipse cx="162" cy="298" rx="25" ry="12"/><ellipse cx="358" cy="297" rx="25" ry="12"/></g>
+          <g class="sun-thought-mark"><circle cx="379" cy="171" r="6"/><circle cx="397" cy="150" r="9"/></g>
+          <g class="sun-sleep-mark"><text class="sleep-z sleep-z-near" x="370" y="174">Z</text><text class="sleep-z sleep-z-far" x="410" y="125">Z</text></g>
+          <g class="sun-welcome-mark" fill="none" stroke-linecap="round"><path d="M150 205l-15-12M365 202l14-14"/></g>
+          <g class="sun-listen-mark" fill="none" stroke-linecap="round"><path d="M392 236c10 9 10 22 0 31"/><path d="M407 225c18 16 18 39 0 55"/></g>
+          <g class="sun-happy-mark" fill="none" stroke-linecap="round"><path d="M137 188l-13-12M383 187l12-13M397 209l16-5"/></g>
+          <g class="sun-heart-mark"><path d="M391 172c-9-14-30-4-22 11 5 9 15 15 22 21 8-7 18-14 21-23 5-15-13-23-21-9Z"/></g>
+          <g class="sun-focus-mark" fill="none" stroke-linecap="round"><path d="M174 215l34-5M300 210l36 6"/><path d="M159 189l-10-12M352 187l12-11"/></g>
+          <path class="sun-error-mark" d="M363 174l14-12m-13-2 11 15" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <div class="character-copy" aria-live="polite">
+        <div id="visualStateLabel" class="state-kicker">陪伴中</div>
+        <h1 id="characterStatus">我在。慢慢说。</h1>
+        <p id="strategyText">我在。</p>
+        <div id="stageFocus" class="stage-focus">
+          <strong id="stageFocusTime">0秒</strong>
+          <span id="stageFocusGoal">专注学习</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="interaction-side" aria-label="陪伴对话">
+      <div class="companion-panel">
+        <div id="sleepCurtain" class="sleep-curtain" role="status" aria-live="polite" aria-hidden="true">
+          <span class="section-number">REST / 静默</span>
+          <strong id="sleepCurtainTitle">陪伴角色正在休息。</strong>
+          <p id="sleepCurtainText">全程静默中，可通过语音唤醒。</p>
+        </div>
+        <div class="conversation-head">
+          <div class="conversation-title-row">
+            <div>
+              <span class="section-number">02 / 对话</span>
+              <h2>今天想先做什么？</h2>
+              <p>写下来，或者直接说。</p>
+            </div>
+            <div id="presencePill" class="presence-note"><span aria-hidden="true">—</span><span>我在。</span></div>
+          </div>
+          <div class="focus-ribbon">
+            <div class="focus-ribbon-copy">
+              <small id="focusRibbonLabel">今天还没有开始专注</small>
+              <strong id="focusGoal">要不要先试一轮？</strong>
+            </div>
+            <span id="focusTime" class="focus-time">未开启</span>
+          </div>
+          <div id="returnBanner" class="return-banner">
+            <span>你回来了。继续刚才的任务吗？</span>
+            <button type="button" onclick="sendCommand('continue')">继续</button>
+            <button type="button" onclick="sendCommand('restart')">重新开始</button>
+            <button type="button" onclick="sendCommand('rest')">先休息</button>
+          </div>
+          <div id="liveStatusRail" class="live-status-rail" aria-label="角色当前感知与服务状态">
+            <div class="status-readout expression-readout"><span>表情</span><strong id="emotionDisplay">未识别</strong></div>
+            <div class="status-readout"><span>摄像头</span><strong id="cameraOk">检查中</strong></div>
+            <div class="status-readout"><span>语音</span><strong id="voiceOk">检查中</strong></div>
+            <div class="status-readout"><span>AI</span><strong id="aiOk">检查中</strong></div>
+          </div>
+          <section id="sensorPanel" class="sensor-panel" aria-label="环境与人体传感器">
+            <div class="sensor-panel-head">
+              <span>环境感知</span>
+              <strong id="sensorHealth" class="sensor-health waiting">等待传感器数据</strong>
+            </div>
+            <div class="sensor-grid">
+              <div id="sensorPresenceItem" class="sensor-readout" hidden><span>空间</span><strong id="sensorPresence">—</strong></div>
+              <div id="sensorTemperatureItem" class="sensor-readout" hidden><span>温度</span><strong id="sensorTemperature">—</strong></div>
+              <div id="sensorHumidityItem" class="sensor-readout" hidden><span>湿度</span><strong id="sensorHumidity">—</strong></div>
+              <div id="sensorAirItem" class="sensor-readout" hidden><span>TVOC</span><strong id="sensorAir">—</strong></div>
+              <div id="sensorLightItem" class="sensor-readout" hidden><span>光照</span><strong id="sensorLight">—</strong></div>
+            </div>
+          </section>
+        </div>
+
+        <div id="chatBox" class="chat-box" aria-live="polite" aria-label="对话记录"></div>
+
+        <div class="compose-zone">
+          <div id="recordingStatus" class="recording-note" role="status"></div>
+          <div class="compose-row">
+            <input id="chatInput" type="text" autocomplete="off" aria-label="对陪伴角色说话" placeholder="写下此刻想到的事" />
+            <button id="micBtn" class="icon-button voice-button" type="button" aria-label="开始语音输入" title="启动语音识别">
+              <span class="voice-button-icon" aria-hidden="true">
+                <svg viewBox="0 0 20 20" focusable="false">
+                  <rect x="7" y="2.5" width="6" height="10" rx="3"></rect>
+                  <path d="M4.8 9.5v.8a5.2 5.2 0 0 0 10.4 0v-.8M10 15.5v2.2M7.2 17.7h5.6"></path>
+                </svg>
+              </span>
+              <span class="voice-button-label">语音输入</span>
+            </button>
+            <button id="sendButton" class="primary-button" type="button" aria-label="发送">发送 ↗</button>
+          </div>
+        </div>
+
+        <div class="lower-zone">
+          <button id="focusAction" class="focus-action" type="button">开始一轮专注</button>
+          <details class="companion-tools">
+            <summary>今天与设置 <span aria-hidden="true">＋</span></summary>
+            <div class="tools-drawer">
+              <div id="todaySummary" class="today-summary"><strong>今天刚刚开始。</strong></div>
+
+              <div id="moodDock" class="mood-dock">
+                <span class="mood-label">此刻状态</span>
+                <div class="mood-row" role="group" aria-label="选择今日情绪">
+                  <button class="mood-button" type="button" data-mood="开心" aria-pressed="false">开心</button>
+                  <button class="mood-button" type="button" data-mood="一般" aria-pressed="true">一般</button>
+                  <button class="mood-button" type="button" data-mood="疲惫" aria-pressed="false">疲惫</button>
+                  <button class="mood-button" type="button" data-mood="焦虑" aria-pressed="false">焦虑</button>
+                  <button class="mood-button" type="button" data-mood="崩溃" aria-pressed="false">崩溃</button>
+                </div>
+              </div>
+
+              <div class="quiet-actions" aria-label="快捷操作">
+                <button id="chatAction" type="button">回到对话</button>
+                <button id="todayAction" type="button">查看今天</button>
+                <button id="moodAction" type="button">调整状态</button>
+                <button type="button" onclick="sendCommand('stop')">结束并生成报告</button>
+                <button type="button" onclick="sendCommand('status')">查看详细状态</button>
+                <button type="button" onclick="sendCommand('happy')">开心陪聊</button>
+                <button type="button" onclick="sendCommand('clear')">清空对话</button>
+              </div>
+
+              <div id="settingsPanel" class="settings-panel">
+                <div class="settings-head">
+                  <span class="section-number">SETTINGS / 03</span>
+                  <h3>控制面板</h3>
+                </div>
+                <section class="settings-card character-settings" aria-labelledby="characterSettingsTitle">
+                  <div class="settings-card-head">
+                    <div>
+                      <span class="section-index">01 / CHARACTER</span>
+                      <h4 id="characterSettingsTitle">角色设定</h4>
+                    </div>
+                    <span class="section-state">名字、性格与表达方式</span>
+                  </div>
+                  <div class="persona-selector persona-presets" id="characterPresetSelector" role="radiogroup" aria-label="角色设定模板">
+                    <button class="persona-btn" type="button" data-persona="default" aria-pressed="true">温柔陪伴</button>
+                    <button class="persona-btn" type="button" data-persona="calm_boy" aria-pressed="false">沉稳理性</button>
+                    <button class="persona-btn" type="button" data-persona="gentle_girl" aria-pressed="false">温暖活泼</button>
+                  </div>
+                  <div class="persona-form">
+                    <label class="persona-field">
+                      <span>角色叫什么</span>
+                      <input id="roleNameInput" type="text" maxlength="20" placeholder="例如：小培" aria-label="自定义角色名称" />
+                    </label>
+                    <label class="persona-field">
+                      <span>性格</span>
+                      <textarea id="personalityInput" maxlength="200" rows="2" placeholder="例如：温柔、耐心、善于倾听，但不会过度说教"></textarea>
+                    </label>
+                    <label class="persona-field">
+                      <span>说话风格</span>
+                      <textarea id="languageStyleInput" maxlength="160" rows="2" placeholder="例如：自然简短，先回应感受，再给一个具体建议"></textarea>
+                    </label>
+                    <label class="persona-field">
+                      <span>口头禅（选填）</span>
+                      <input id="catchphrasesInput" type="text" maxlength="160" placeholder="多条可用逗号分开，例如：慢慢来，交给我吧" />
+                      <small>最多 5 条。暖语只会偶尔在语境合适时使用，不会每句重复。</small>
+                    </label>
+                  </div>
+                  <div class="settings-save-row">
+                    <small id="roleNameHint" class="role-name-hint" aria-live="polite"></small>
+                    <button id="saveRoleNameButton" class="settings-save-button" type="button">保存角色设定</button>
+                  </div>
+                </section>
+
+                <section class="settings-card voice-settings" aria-labelledby="voiceSettingsTitle">
+                  <div class="settings-card-head">
+                    <div>
+                      <span class="section-index">02 / VOICE</span>
+                      <h4 id="voiceSettingsTitle">声音设定</h4>
+                    </div>
+                    <span class="section-state">与角色性格分别保存</span>
+                  </div>
+                  <div class="settings-row voice-backend-row">
+                    <div>
+                      <span class="settings-label">声音模式</span>
+                      <small>切换合成引擎，不会修改角色设定</small>
+                    </div>
+                    <select id="ttsBackendSelect" aria-label="选择声音模式">
+                      <option value="drizzle">Drizzle · 本地极速</option>
+                      <option value="stream">Stream · 豆包云端</option>
+                      <option value="surge">Surge · 自定义音色</option>
+                    </select>
+                  </div>
+                  <div class="settings-row settings-row-toggle">
+                    <div>
+                      <span class="settings-label">板卡麦克风</span>
+                      <small>比赛时可静音，ASR 常驻不需要重新加载</small>
+                    </div>
+                    <button id="micMuteToggle" class="persona-btn" type="button" aria-pressed="false">静音麦克风</button>
+                  </div>
+                  <div class="settings-group voice-option-group" id="streamVoiceGroup" style="display:none">
+                    <div class="settings-row">
+                      <div>
+                        <span class="settings-label">豆包音色</span>
+                        <small>选择 Stream 模式使用的声音</small>
+                      </div>
+                    </div>
+                    <div class="persona-selector" role="radiogroup" id="streamVoiceSelector" aria-label="选择豆包音色"></div>
+                    <div class="voice-preview-row">
+                      <button class="persona-btn" type="button" id="streamPreviewBtn" disabled>▶ 试听当前音色</button>
+                      <small id="streamPreviewHint" aria-live="polite"></small>
+                    </div>
+                  </div>
+                  <div class="settings-group voice-option-group" id="surgeVoiceSettingsGroup" style="display:none">
+                    <div class="settings-row">
+                      <div>
+                        <span class="settings-label">自定义音色</span>
+                        <small>上传参考音频，创建并管理 Surge 音色</small>
+                      </div>
+                      <button class="persona-btn" type="button" id="manageSurgeVoiceButton">管理音色</button>
+                    </div>
+                  </div>
+                </section>
+                <div class="settings-group settings-status">
+                  <div class="settings-row"><span class="settings-label">当前角色</span><strong id="currentPersona">—</strong></div>
+                  <div class="settings-row"><span class="settings-label">当前音色</span><strong id="currentVoice">—</strong></div>
+                  <div class="settings-row"><span class="settings-label">记忆条目</span><strong id="memoryCount">—</strong></div>
+                  <div class="settings-row"><span class="settings-label">对话消息</span><strong id="messageCount">—</strong></div>
+                  <div class="settings-row"><span class="settings-label">主动关怀</span><strong id="proactiveStatusLabel">—</strong></div>
+                  <div class="settings-row"><span class="settings-label">板卡麦克风</span><strong id="micState">检查中</strong></div>
+                </div>
+                  <div class="settings-group">
+                  <div class="settings-row settings-row-toggle">
+                    <div>
+                      <span class="settings-label">主动交互</span>
+                      <small id="proactiveDescription">让陪伴角色在合适的时候主动和你说话</small>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="proactiveToggle" />
+                      <span class="toggle-track"></span>
+                    </label>
+                  </div>
+                  </div>
+                  <div class="settings-group">
+                    <div class="settings-row">
+                      <div>
+                        <span class="settings-label">互动频率</span>
+                        <small>调整陪伴角色主动关心你的节奏</small>
+                      </div>
+                    </div>
+                    <div class="settings-row">
+                      <input id="proactiveLevel" type="range" min="1" max="10" step="1" value="5" aria-label="主动交互等级" />
+                      <output id="proactiveLevelValue">Lv.5</output>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <details id="systemDetails" class="system-details">
+                <summary id="systemSummary">状态正常</summary>
+                <div class="details-popover">
+                  <p id="healthMessage" class="health-message">所有功能已准备好。</p>
+                  <div class="device-grid">
+                    <div class="device-row"><span>视觉感知</span><b id="visualState">检查中</b></div>
+                    <div class="device-row"><span>语音合成</span><b id="pipeTTS">检查中</b></div>
+                    <div class="device-row"><span>扬声器</span><b id="pipeSpeaker">检查中</b></div>
+                    <div class="device-row"><span>最近语音</span><b id="lastVoice">暂无</b></div>
+                  </div>
+                  <details id="scheduleBox" class="event-section" hidden>
+                    <summary>日程提醒</summary><div id="scheduleList" class="event-list"></div>
+                  </details>
+                  <details class="event-section">
+                    <summary>最近发生的事</summary><div id="eventList" class="event-list"></div>
+                  </details>
+                  <div id="debugControls" class="debug-controls" aria-label="视觉状态调试器"></div>
+                </div>
+              </details>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <aside id="surgeVoiceDrawer" class="surge-drawer" aria-label="Surge 自定义音色" hidden>
+        <button id="surgeDrawerToggle" class="surge-drawer-toggle" type="button" aria-expanded="true" aria-controls="surgeVoiceGroup">
+          <span class="surge-drawer-grip" aria-hidden="true"></span>
+          <span class="surge-drawer-label">
+            <span class="section-number">SURGE / 自定义音色</span>
+            <strong id="surgeActiveVoice">选择角色的声音</strong>
+          </span>
+          <span id="surgeVoiceCount" class="surge-drawer-badge" aria-label="音色数量">0</span>
+          <svg class="surge-drawer-chevron" viewBox="0 0 12 8" aria-hidden="true"><path d="m1.5 1.5 4.5 4 4.5-4" /></svg>
+        </button>
+        <div id="surgeVoiceGroup" class="surge-drawer-body">
+          <div class="surge-drawer-scroll">
+            <div id="surgeVoiceList" class="surge-voice-list" aria-live="polite">
+              <div class="surge-empty"><p>正在读取自定义音色…</p></div>
+            </div>
+            <button class="surge-add-button" type="button" id="surgeUploadBtn">＋ 创建自定义音色</button>
+            <div id="surgeServerStatus" class="surge-server-status">
+              <span class="surge-dot" aria-hidden="true"></span>
+              <span>正在检查 Surge 服务</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <div id="studyModalMask" class="modal-mask" role="dialog" aria-modal="true" aria-labelledby="studyModalTitle">
+    <div class="modal">
+      <span class="section-number">专注 / 01</span>
+      <h3 id="studyModalTitle">这一轮，完成什么？</h3>
+      <p>写一个足够具体的小目标。</p>
+      <input id="goalInput" type="text" placeholder="例如：整理完报告的创新点" />
+      <div class="modal-actions">
+        <button class="secondary-button" type="button" id="cancelStudyButton">取消</button>
+        <button class="primary-button" type="button" id="startStudyButton">开始</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/nuanyu-visual-state.js?v=20260724-layout2"></script>
+  <script src="/static/js/main.js?v=20260725-persona-voice-2"></script>
+
+  <!-- Surge Voice Upload Modal -->
+  <div id="surgeUploadModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center" onclick="if(event.target===this)closeSurgeUpload()">
+    <div style="background:#fff;border-radius:12px;padding:20px;width:360px;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,.2)">
+      <h3 style="margin:0 0 16px">创建自定义音色</h3>
+      <div style="margin-bottom:12px">
+        <label style="font-size:.82rem;color:#666;display:block;margin-bottom:4px">音色名称</label>
+        <input type="text" id="surgeUploadName2" placeholder="例如：雷军" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.9rem;box-sizing:border-box" />
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:.82rem;color:#666;display:block;margin-bottom:4px">参考音频（3-5秒清晰语音）</label>
+        <input type="file" id="surgeUploadFile" accept="audio/*" style="width:100%;font-size:.85rem" />
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:.82rem;color:#666;display:block;margin-bottom:4px">参考文本（音频中说的话语）</label>
+        <input type="text" id="surgeUploadText2" placeholder="音频中说的话" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.9rem;box-sizing:border-box" />
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="persona-btn" type="button" onclick="closeSurgeUpload()">取消</button>
+        <button class="persona-btn" type="button" id="surgeUploadConfirm" style="background:#d4915a;color:#fff;border-color:#d4915a">创建</button>
+      </div>
+      <div id="surgeUploadStatus" style="margin-top:8px;font-size:.78rem;color:#999"></div>
+    </div>
+  </div>
+</body>
+</html>

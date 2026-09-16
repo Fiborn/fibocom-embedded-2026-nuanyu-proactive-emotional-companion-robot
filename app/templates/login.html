@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>暖语 · 回来啦</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/static/css/tokens.css" />
+  <link rel="stylesheet" href="/static/css/login.css" />
+</head>
+<body>
+  <main class="login-shell">
+    <section class="login-welcome">
+      <div class="brand-line"><span class="brand-index">NY · 01</span><span class="brand-name">暖语</span></div>
+      <div class="welcome-copy">
+        <h1>继续上次的<br>对话。</h1>
+        <p>登录后，学习目标和对话记录会回到原处。</p>
+      </div>
+      <img class="perched-mark" src="/assets/bird/perched-original.jpg" alt="一只没有眼睛的线稿小鸟停在手指上" draggable="false" />
+    </section>
+    <section class="login-card">
+      <h2>登录</h2>
+      <p class="sub">选择账号，继续。</p>
+      <input id="username" type="text" placeholder="用户名" autocomplete="username" aria-label="用户名" />
+      <input id="password" type="password" placeholder="密码" autocomplete="current-password" aria-label="密码" />
+      <button type="button" onclick="doLogin()">继续 ↗</button>
+      <div id="loginError" class="error" role="alert"></div>
+      <div class="users" id="userList"></div>
+    </section>
+  </main>
+  <script>
+    function escapeAttribute(value){return String(value||"").replaceAll("&","&amp;").replaceAll("'","&#39;").replaceAll("<","&lt;").replaceAll(">","&gt;")}
+    async function loadUsers(){try{const response=await fetch('/api/users');const data=await response.json();const users=data.users||{};const list=document.getElementById('userList');if(!Object.keys(users).length){list.innerHTML='';return}list.innerHTML='<div class="tit">选择之前的账号</div>'+Object.keys(users).map(name=>'<span class="user-chip" data-user="'+escapeAttribute(name)+'">'+escapeAttribute(name)+'</span>').join('');list.querySelectorAll('.user-chip').forEach(chip=>chip.addEventListener('click',()=>{document.getElementById('username').value=chip.dataset.user;document.getElementById('password').focus()}))}catch(error){console.error('[Nuanyu] users',error)}}
+    async function doLogin(){const username=document.getElementById('username').value.trim();const password=document.getElementById('password').value;const errorBox=document.getElementById('loginError');errorBox.textContent='';if(!username||!password){errorBox.textContent='请输入用户名和密码';return}try{const response=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});const data=await response.json();if(data.ok)window.location.reload();else errorBox.textContent=data.error||'登录失败'}catch(error){errorBox.textContent='暂时没有连上暖语服务，请稍后再试。'}}
+    document.getElementById('password').addEventListener('keydown',event=>{if(event.key==='Enter')doLogin()});
+    loadUsers();
+  </script>
+</body>
+</html>

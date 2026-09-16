@@ -1,0 +1,48 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# ---- Secrets: never commit a populated config ----
+# config/*.env.example are templates and ARE tracked.
+config/*.env
+!config/*.env.example
+.env
+*.pem
+*.key
+
+# ---- Board runtime state and user data ----
+# The app creates these on first run; they hold real user conversations.
+app/data/
+app/Log/
+app/memories/
+app/schedule.json
+app/user_memory.json
+*.db
+*.db-wal
+*.db-shm
+
+# ---- Generated media ----
+*.wav
+*.mp3
+*.log
+*.pid
+crash.log
+
+# ---- Models ----
+# Not distributed with this repository. See docs/MODELS.md.
+*.onnx
+*.fmodel
+*.npy
+
+# ---- Editor / OS ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+*~

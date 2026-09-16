@@ -1,0 +1,21 @@
+[Unit]
+Description=Nuanyu resilient board runtime
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust the path to wherever the repository is deployed. The start script
+# resolves the deployment root from its own location, so keeping deploy/ and
+# app/ as siblings is all that is required.
+#
+# Invoked via /bin/sh so the runtime survives a board reboot even if the
+# adb-synced start script loses its +x bit on the /userdata filesystem.
+ExecStart=/bin/sh /userdata_fibo/deploy/start_nuanyu_runtime.sh
+Restart=always
+RestartSec=3
+TimeoutStopSec=12
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

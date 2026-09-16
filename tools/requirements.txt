@@ -1,0 +1,13 @@
+# Host-PC requirements for the helpers in tools/.
+#
+# These run on the machine connected over ADB, not on the board:
+#   zipvoice_server_v2.py  the `surge` voice-cloning backend  (:5018)
+#   pc_mic_server.py       host microphone bridge             (:5002)
+#   asr_duration_probe.py  board-side diagnostic (needs the board env instead)
+#
+# Python 3.8+ is fine here; a CUDA GPU is optional (see docs/TTS.md).
+
+sherpa-onnx
+numpy
+scipy
+sounddevice

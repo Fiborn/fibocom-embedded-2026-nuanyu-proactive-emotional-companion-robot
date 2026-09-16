@@ -1,0 +1,19 @@
+# Python packages required by the board runtime (app/).
+#
+# Target interpreter is Python 3.8 (the vendor image). Install with:
+#     pip3 install -r app/requirements.txt
+#
+# NOT installable from pip — they must come from the board image or Fibocom:
+#   - fiboaisdk         Fibocom AI SDK (ASR/TTS on the Hexagon DSP)
+#   - sherpa_onnx       only needed by the drizzle backend's Matcha worker;
+#                       install the board-specific aarch64 wheel if you use it
+#   - pycairo           only needed by the HDMI expression display on Wayland
+#
+# The host-side helpers in tools/ have their own requirements — see
+# tools/requirements.txt.
+
+certifi
+numpy
+onnxruntime
+opencv-python-headless
+urllib3

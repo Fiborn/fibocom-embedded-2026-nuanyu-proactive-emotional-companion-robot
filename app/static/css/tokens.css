@@ -1,0 +1,34 @@
+:root {
+  --bg-main: #f7f5ef;
+  --bg-surface: #fbfaf7;
+  --bg-soft: #efede7;
+  --bg-warm: #f1e9df;
+  --text-primary: #24211f;
+  --text-secondary: #6f6a64;
+  --text-soft: #9a958e;
+  --accent-primary: #c76543;
+  --accent-primary-deep: #934a32;
+  --accent-mint: #83988a;
+  --accent-pink: #bf8d82;
+  --accent-yellow: #c8a55d;
+  --border-soft: #d8d4cc;
+  --danger-soft: #a75f54;
+  --line-strong: #34312e;
+  --screen: #252d31;
+  --shadow-soft: 0 10px 28px rgba(45, 39, 34, 0.045);
+  --shadow-float: 0 18px 48px rgba(45, 39, 34, 0.10);
+  --radius-sm: 5px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --motion-fast: 160ms;
+  --motion-normal: 320ms;
+  --motion-slow: 1000ms;
+  --font-ui: MiSans, "HarmonyOS Sans SC", "Source Han Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-editorial: "Songti SC", SimSun, "Source Han Serif SC", "Noto Serif CJK SC", serif;
+}

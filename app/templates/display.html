@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>表情屏</title>
+<style>
+:root { --blue: #63d7ff; }
+* { box-sizing: border-box; }
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+  user-select: none;
+}
+body { cursor: none; }
+#expression-stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #000;
+  /* Screen is mounted upside down: rotate 180° overall so it displays upright */
+  transform: rotate(180deg);
+  transform-origin: 50% 50%;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+</style>
+</head>
+<body>
+<div id="expression-stage" aria-hidden="true"><canvas id="expression-canvas"></canvas></div>
+<script>
+'use strict';
+
+const BLUE = '#63d7ff';
+const POLL_MS = 400;
+const DEBOUNCE_MS = 550;
+const MIN_HOLD_MS = 1200;
+
+const stage = document.getElementById('expression-stage');
+const canvas = document.getElementById('expression-canvas');
+const ctx = canvas.getContext('2d');
+
+let width = 1;
+let height = 1;
+let deviceScale = 1;
+let status = null;
+let displayedEmotion = 'idle';
+let pendingEmotion = null;
+let pendingSince = 0;
+let displayedSince = performance.now();
+
+function resize() {
+  width = Math.max(1, window.innerWidth);
+  height = Math.max(1, window.innerHeight);
+  deviceScale = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(width * deviceScale);
+  canvas.height = Math.round(height * deviceScale);
+  ctx.setTransform(deviceScale, 0, 0, deviceScale, 0, 0);
+}
+
+function ttsIsSpeaking(value) {
+  const state = value && value.tts && value.tts.state;
+  return String(state || '').toLowerCase().includes('speak');
+}
+
+function resolveEmotion(value) {
+  if (!value || typeof value !== 'object') return 'idle';
+  if (ttsIsSpeaking(value)) return 'speaking';
+  if (value.assistant_sleeping) return 'sleep';
+  if (value.study_running) return 'focus';
+  if (value.ai_pending) return 'thinking';
+
+  const emotion = String(value.current_emotion || '').toLowerCase();
+  if (emotion === 'happy' || emotion === 'surprise') return 'happy';
+  if (emotion === 'sad' || emotion === 'angry' || emotion === 'fear') return 'tired';
+  if (value.return_prompt) return 'welcome';
+  return 'idle';
+}
+
+function updateEmotion(next, now) {
+  if (next === displayedEmotion) {
+    pendingEmotion = null;
+    return;
+  }
+  if (pendingEmotion !== next) {
+    pendingEmotion = next;
+    pendingSince = now;
+    return;
+  }
+  if (now - pendingSince < DEBOUNCE_MS) return;
+  if (now - displayedSince < MIN_HOLD_MS) return;
+  displayedEmotion = next;
+  displayedSince = now;
+  pendingEmotion = null;
+}
+
+async function pollStatus() {
+  try {
+    const response = await fetch('/api/status', { cache: 'no-store' });
+    if (!response.ok) return;
+    const next = await response.json();
+    const now = performance.now();
+    status = next;
+    updateEmotion(resolveEmotion(next), now);
+  } catch (error) {
+    // Keep the last valid face while the existing status endpoint recovers.
+  }
+}
+
+function fillBlue() {
+  ctx.fillStyle = BLUE;
+}
+
+function filledRoundRect(x, y, widthPx, heightPx) {
+  const radius = Math.min(widthPx, heightPx) / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + widthPx - radius, y);
+  ctx.quadraticCurveTo(x + widthPx, y, x + widthPx, y + radius);
+  ctx.lineTo(x + widthPx, y + heightPx - radius);
+  ctx.quadraticCurveTo(x + widthPx, y + heightPx, x + widthPx - radius, y + heightPx);
+  ctx.lineTo(x + radius, y + heightPx);
+  ctx.quadraticCurveTo(x, y + heightPx, x, y + heightPx - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.fill();
+}
+
+function filledArcBand(centerX, centerY, widthPx, heightPx, archUp) {
+  const halfWidth = widthPx / 2;
+  ctx.beginPath();
+  if (archUp) {
+    ctx.moveTo(centerX - halfWidth, centerY + heightPx * 0.16);
+    ctx.quadraticCurveTo(centerX, centerY - heightPx, centerX + halfWidth, centerY + heightPx * 0.16);
+    ctx.quadraticCurveTo(centerX, centerY - heightPx * 0.28, centerX - halfWidth, centerY + heightPx * 0.16);
+  } else {
+    ctx.moveTo(centerX - halfWidth, centerY - heightPx * 0.16);
+    ctx.quadraticCurveTo(centerX, centerY + heightPx, centerX + halfWidth, centerY - heightPx * 0.16);
+    ctx.quadraticCurveTo(centerX, centerY + heightPx * 0.28, centerX - halfWidth, centerY - heightPx * 0.16);
+  }
+  ctx.fill();
+}
+
+function drawEye(x, y, size, mode) {
+  fillBlue();
+  if (mode === 'sleep' || mode === 'blink') {
+    filledRoundRect(x - size * 0.46, y - size * 0.09, size * 0.92, size * 0.18);
+  } else if (mode === 'happy') {
+    filledArcBand(x, y + size * 0.08, size * 0.92, size * 0.34, true);
+  } else if (mode === 'tired') {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(0.12);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 0.43, size * 0.13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  } else if (mode === 'focus') {
+    filledRoundRect(x - size * 0.42, y - size * 0.08, size * 0.84, size * 0.16);
+  } else {
+    ctx.beginPath();
+    ctx.ellipse(x, y, size * 0.34, size * 0.48, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawMouth(emotion, speaking, now, centerX, centerY, size) {
+  fillBlue();
+
+  if (speaking) {
+    const opening = size * (0.08 + (Math.sin(now / 92) * 0.5 + 0.5) * 0.16);
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, size * 0.22, opening, 0, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
+  if (emotion === 'happy' || emotion === 'welcome') {
+    filledArcBand(centerX, centerY - size * 0.04, size * 0.64, size * 0.28, false);
+  } else if (emotion === 'tired') {
+    filledArcBand(centerX, centerY + size * 0.12, size * 0.5, size * 0.24, true);
+  } else if (emotion === 'sleep' || emotion === 'listening') {
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, size * 0.12, size * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (emotion === 'focus') {
+    filledRoundRect(centerX - size * 0.24, centerY - size * 0.06, size * 0.48, size * 0.12);
+  } else if (emotion === 'thinking') {
+    filledRoundRect(centerX - size * 0.04, centerY - size * 0.09, size * 0.24, size * 0.18);
+  } else {
+    filledArcBand(centerX, centerY, size * 0.52, size * 0.22, false);
+  }
+}
+
+function drawFace(now) {
+  ctx.clearRect(0, 0, width, height);
+
+  const size = Math.min(width, height);
+  const centerX = width / 2;
+  const eyeY = height * 0.38;
+  const mouthY = height * 0.66;
+  const eyeGap = size * 0.24;
+  const eyeSize = size * 0.22;
+  const speaking = ttsIsSpeaking(status);
+  const blinkPhase = now % 5200;
+  const blinking = blinkPhase > 4700 && blinkPhase < 4880;
+  const eyeEmotion = displayedEmotion === 'speaking' ? 'idle' : displayedEmotion;
+  const mouthEmotion = displayedEmotion === 'speaking' ? 'idle' : displayedEmotion;
+
+  drawEye(centerX - eyeGap, eyeY, eyeSize, blinking ? 'blink' : eyeEmotion);
+  drawEye(centerX + eyeGap, eyeY, eyeSize, blinking ? 'blink' : eyeEmotion);
+  drawMouth(mouthEmotion, speaking, now, centerX, mouthY, size);
+}
+
+function animate(now) {
+  drawFace(now);
+  window.requestAnimationFrame(animate);
+}
+
+window.addEventListener('resize', resize);
+resize();
+pollStatus();
+window.setInterval(pollStatus, POLL_MS);
+window.requestAnimationFrame(animate);
+</script>
+</body>
+</html>
