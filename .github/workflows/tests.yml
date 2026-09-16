@@ -1,0 +1,53 @@
+name: tests
+
+# The suite is deliberately board-independent: it mocks the camera, the ONNX
+# session, the weather/device/reminder providers and the sensor node, and it
+# reads the app's source as text instead of importing the module that needs
+# termios. numpy is the only third-party import, so this runs anywhere.
+#
+# Python 3.8 is the interpreter the target board actually ships; the newer
+# versions are there to catch syntax and deprecation drift early.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest numpy
+
+      - name: Run the test suite
+        run: python -m pytest tests -q
+
+  syntax:
+    # The board runs the app on Python 3.8. Compiling the tree there is a
+    # cheaper guard than running it, and it catches anything the tests do not
+    # import (the display renderer, the worker scripts, the host tools).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: Byte-compile app, tools and tests
+        run: python -m compileall -q app tools tests
