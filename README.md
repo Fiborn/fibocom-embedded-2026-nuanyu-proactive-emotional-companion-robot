@@ -1,4 +1,7 @@
-# Nuanyu (暖语)
+# Nuanyu (暖语) — Proactive Emotional Companion Robot
+
+**Beijing University of Posts and Telecommunications** (北京邮电大学)
+**Bojie Lin · Chenyu Liu · Chuyi Liang** (林渤杰 · 刘晨语 · 梁楚仪)
 
 *Built for the 2026 Embedded Chip and System Design Competition — Fibocom Smart
 Connectivity Cup (2026 嵌入式芯片与系统设计竞赛 · 广和通智联杯).*
@@ -257,7 +260,9 @@ no build step and no bundled framework.
 
 ## Credits
 
-Built by **Bojie Lin**, **Chenyu Liu** and **Chuyi Liang**.
+**Beijing University of Posts and Telecommunications** (北京邮电大学)
+
+Built by **Bojie Lin** (林渤杰), **Chenyu Liu** (刘晨语) and **Chuyi Liang** (梁楚仪).
 
 The sensor-node firmware and its host-side protocol live in a companion repository.
 
